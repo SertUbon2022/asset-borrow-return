@@ -70,16 +70,26 @@ export default function LoginPage() {
           <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-[#00A8FF]/20 rounded-full blur-2xl pointer-events-none" />
 
           <div className="relative z-10 space-y-6">
-            {/* White Glass Emblem Container */}
-            <div className="inline-flex items-center gap-2 p-2.5 rounded-2xl bg-white shadow-xl border-2 border-[#E5A823]">
-              <Image
-                src="/pwasite.png"
-                alt="โลโก้ การประปาส่วนภูมิภาค"
-                width={160}
-                height={48}
-                className="h-9 sm:h-10 w-auto object-contain"
-                priority
-              />
+            {/* Premium PWA Brand Emblem Container */}
+            <div className="inline-flex items-center gap-3.5 p-3 rounded-2xl bg-white shadow-2xl border border-blue-100/80 group hover:scale-[1.02] transition-all duration-300">
+              <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-50 flex items-center justify-center p-1 border border-slate-100">
+                <Image
+                  src="/pwa-login.svg"
+                  alt="โลโก้ การประปาส่วนภูมิภาค"
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-contain"
+                  priority
+                />
+              </div>
+              <div className="text-left pr-2">
+                <div className="text-[#003366] font-black text-sm leading-snug tracking-tight">
+                  การประปาส่วนภูมิภาค
+                </div>
+                <div className="text-[#0072BC] font-extrabold text-[10px] tracking-wider uppercase">
+                  Provincial Waterworks Authority
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -98,7 +108,7 @@ export default function LoginPage() {
             <div className="space-y-2.5 pt-4 text-xs font-medium border-t border-white/20">
               <div className="flex items-center gap-2 text-blue-50">
                 <CheckCircle2 className="w-4 h-4 text-[#00A8FF] shrink-0" />
-                <span>ยืนยันตัวตนผ่าน MySQL Database Session</span>
+                <span>ยืนยันตัวตนผ่าน PostgreSQL Database Session</span>
               </div>
               <div className="flex items-center gap-2 text-blue-50">
                 <CheckCircle2 className="w-4 h-4 text-[#E5A823] shrink-0" />

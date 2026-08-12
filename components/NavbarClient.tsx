@@ -26,6 +26,8 @@ import {
   Menu,
   X,
   Settings2,
+  User,
+  LogIn,
 } from "lucide-react";
 
 interface NavbarClientProps {
@@ -149,12 +151,31 @@ const MobileMenuDrawer = memo(({
       </div>
     )}
 
-    {currentUser && (
-      <div className="pt-3 border-t border-blue-700 flex items-center justify-between">
-        <span className="text-xs text-slate-300">
-          {currentUser.name} ({currentUser.role})
-        </span>
+    {currentUser ? (
+      <div className="pt-3 border-t border-blue-700 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="w-7 h-7 rounded-full bg-[#E5A823] text-slate-900 font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
+            {currentUser.name.charAt(0)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
+            <div className="text-[10px] text-blue-200 font-light truncate">
+              {currentUser.role === "admin" ? "เจ้าหน้าที่ IT Admin" : currentUser.department || "พนักงาน กปภ."}
+            </div>
+          </div>
+        </div>
         <LogoutButton />
+      </div>
+    ) : (
+      <div className="pt-3 border-t border-blue-700">
+        <Link
+          href="/login"
+          onClick={onClose}
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[#E5A823] hover:bg-amber-500 text-slate-900 font-bold text-xs shadow-md transition-all active:scale-95"
+        >
+          <LogIn className="w-4 h-4" />
+          <span>เข้าสู่ระบบใช้งาน</span>
+        </Link>
       </div>
     )}
   </div>
@@ -280,9 +301,33 @@ export default function NavbarClient({ currentUser }: NavbarClientProps) {
                 </DropdownMenu>
               )}
 
-              {currentUser && (
-                <div className="ml-2 border-l border-blue-400/40 pl-3">
+              {currentUser ? (
+                <div className="ml-2 border-l border-blue-400/40 pl-3.5 flex items-center gap-3">
+                  {/* User Profile Badge */}
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-white/15 border border-white/20 text-xs shadow-xs">
+                    <div className="w-7 h-7 rounded-full bg-[#E5A823] text-slate-900 font-extrabold flex items-center justify-center shrink-0 text-xs shadow-xs">
+                      {currentUser.name.charAt(0)}
+                    </div>
+                    <div className="text-left hidden lg:block max-w-[140px]">
+                      <div className="font-bold text-white truncate leading-tight">{currentUser.name}</div>
+                      <div className="text-[10px] text-blue-200 font-light truncate">
+                        {currentUser.role === "admin" ? "เจ้าหน้าที่ IT Admin" : currentUser.department || "พนักงาน กปภ."}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Logout Button */}
                   <LogoutButton />
+                </div>
+              ) : (
+                <div className="ml-2 border-l border-blue-400/40 pl-3">
+                  <Link
+                    href="/login"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#E5A823] hover:bg-amber-500 text-slate-900 font-extrabold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+                  >
+                    <LogIn className="w-4 h-4 text-slate-900" />
+                    <span>เข้าสู่ระบบ</span>
+                  </Link>
                 </div>
               )}
             </div>

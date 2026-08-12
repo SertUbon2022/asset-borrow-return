@@ -42,6 +42,7 @@ Application standards for **Provincial Waterworks Authority (การประ�
 - **UI Component Layer**: All reusable base UI components (`Button`, `Dialog`, `Card`, `Input`, `Textarea`, `Badge`, `Select`, etc.) MUST reside in `components/ui/` leveraging Shadcn UI / Radix UI primitives with PWA CI styling.
 - **Dynamic Styling Guard**: Always use `cn(...)` from `@/lib/utils` (`clsx` + `tailwind-merge`) when concatenating or overriding Tailwind CSS class names.
 - **Tailwind v4 Semantic Theme Rules**: Utilize mapped semantic utility classes (`bg-card`, `text-card-foreground`, `bg-primary`, `border-border`, `ring-ring`) from `@theme inline` in `app/globals.css` to maintain strict UI consistency.
+- **Next.js 16 Proxy Convention Guard**: The deprecated `middleware.ts` convention is STRICTLY FORBIDDEN. Always use `proxy.ts` (with `export function proxy(request: NextRequest)`) in the root directory for session routing, authentication checks, and request interception.
 - **Data Fetching (Read)**: Use React Server Components (RSC) inside `server/queries/` with type-safe Drizzle queries.
 - **Data Mutations (Write)**: Use Next.js Server Actions (`'use server'`) inside `server/actions/` validated with Zod schemas.
 - **Database Layer**: Declare schemas in `db/schema/index.ts`. Export inferred types (`$inferSelect`, `$inferInsert` or `InferSelectModel`, `InferInsertModel`) and relations.
@@ -104,12 +105,15 @@ Application standards for **Provincial Waterworks Authority (การประ�
 - **Pure White Cards (`bg-white`)**: Content containers MUST be pure white cards with soft rounded corners (`rounded-3xl`), light borders (`border-slate-200/70`), and soft drop shadows (`shadow-xl shadow-slate-200/30`).
 - **Compact & High-Contrast Typography**: Headings must use bold, crisp typography with PWA Primary Blue (`#0072BC`) or Deep Navy (`#003366`). Sub-boxes must use soft gray backgrounds (`bg-slate-50 border-slate-100`) with vibrant, readable metric numbers.
 - **User Feedback & Loading States**: Provide responsive interactive states (`useTransition`, disabled/pending buttons) and informative localized feedback during async operations.
+- **Mobile-First Responsive Layout Guard**: Every layout, card, and UI component MUST be built mobile-first using Tailwind CSS responsive breakpoints (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`, mobile drawer navigation, touch-friendly targets ≥ 44px, and horizontal scrollable containers) to guarantee flawless display across smartphones, tablets, and desktops.
 - **No Redundant Navigation Buttons**: Page body content MUST NOT contain redundant navigation buttons that duplicate the main top Navbar links.
+
 
 ---
 
 ## 🌿 9. Git & Version Control Standards
 
+- **Explicit User-Triggered Commits Policy**: NEVER perform `git add`, `git commit`, or `git push` automatically after completing a task or code edits. ONLY execute Git operations when the user explicitly commands or requests it (e.g., "ปรับปรุง git", "commit", "push").
 - **Conventional Commit Messages**: All git commits MUST follow the Conventional Commits specification:
   - `feat:` New features or UI components
   - `fix:` Bug fixes or schema corrections
@@ -119,4 +123,5 @@ Application standards for **Provincial Waterworks Authority (การประ�
   - `chore:` Dependency, build script, or `.gitignore` maintenance
 - **Git Safety & Credentials Guard**: NEVER commit `.env`, `.env.local`, or any file containing database credentials, tokens, or secret keys. Ensure `.env*` remains strictly gitignored in `.gitignore`.
 - **Clean Working Tree Policy**: Verify that code builds without errors before committing and pushing to `main` or feature branches.
+
 
