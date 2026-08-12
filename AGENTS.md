@@ -25,15 +25,15 @@ Application standards for **Provincial Waterworks Authority (การประ�
 ## 🛠️ 2. Technology Stack & Framework Specs
 
 - **Framework**: Next.js 16.x (App Router)
-- **Runtime & Package Manager**: Bun v1.x
-- **Database**: MySQL 8.x (`it_asset_flow_v7`)
-- **ORM**: Drizzle ORM (Type-safe SQL ORM)
+- **Runtime & Package Manager**: Bun v1.x (`bun@1.3.x`)
+- **Database**: PostgreSQL 15+ / 16+ (`pg` connection pool)
+- **ORM**: Drizzle ORM (`drizzle-orm/pg-core` & `drizzle-kit`)
 - **Language**: TypeScript 5.x (Strict mode)
 - **Styling**: Tailwind CSS v4 + PWA CI Customized Theme
 - **UI Component Library**: Shadcn UI (Radix UI primitives + CVA)
 - **Fonts**: Google Fonts `Prompt` (Web UI) & `Sarabun` (Official Documents) via `next/font/google`
 - **Validation**: Zod
-- **Authentication**: Stateful Database Sessions (`sessions` table in MySQL)
+- **Authentication**: Stateful Database Sessions (`sessions` table in PostgreSQL)
 
 ---
 
@@ -44,12 +44,24 @@ Application standards for **Provincial Waterworks Authority (การประ�
 - **Tailwind v4 Semantic Theme Rules**: Utilize mapped semantic utility classes (`bg-card`, `text-card-foreground`, `bg-primary`, `border-border`, `ring-ring`) from `@theme inline` in `app/globals.css` to maintain strict UI consistency.
 - **Data Fetching (Read)**: Use React Server Components (RSC) inside `server/queries/` with type-safe Drizzle queries.
 - **Data Mutations (Write)**: Use Next.js Server Actions (`'use server'`) inside `server/actions/` validated with Zod schemas.
-- **Database Layer**: Declare schemas in `db/schema/index.ts`. Export infer types (`$inferSelect`, `$inferInsert`) and relations.
+- **Database Layer**: Declare schemas in `db/schema/index.ts`. Export inferred types (`$inferSelect`, `$inferInsert` or `InferSelectModel`, `InferInsertModel`) and relations.
 - **Error Handling**: Graceful error handling with descriptive Thai user messages and logging.
 
 ---
 
-## 🔐 4. Security & Production Rules
+## 🗄️ 4. Database & Drizzle ORM Guidelines
+
+- **Schema Definition**: All table definitions MUST use `drizzle-orm/pg-core` constructs (`pgTable`, `serial`, `varchar`, `timestamp`, `pgEnum`, etc.) in `@/db/schema/index.ts`.
+- **Database Operations CLI**: Always execute database management commands via Bun:
+  - Generate migrations: `bun db:generate`
+  - Push schema changes: `bun db:push`
+  - Seed database: `bun db:seed`
+  - Open Drizzle Studio: `bun db:studio`
+- **Type Imports**: Always export and consume type definitions (`User`, `Asset`, `BorrowRequest`, etc.) directly from `@/db/schema`.
+
+---
+
+## 🔐 5. Security & Production Rules
 
 - **Zero Hardcoded Credentials**: Never write hardcoded fallback database URLs or passwords in code files (`db/index.ts` or `drizzle.config.ts`). Always require `process.env.DATABASE_URL`.
 - **Server Isolation Guard**: Always import `'server-only'` at the top of server-only modules (`db/index.ts`, `server/queries/`, `server/actions/`) to prevent client-side leaks.
@@ -58,10 +70,10 @@ Application standards for **Provincial Waterworks Authority (การประ�
 
 ---
 
-## 🛡️ 5. Stateful Database Authentication & RBAC Rules
+## 🛡️ 6. Stateful Database Authentication & RBAC Rules
 
 - **Mandatory Login Policy**: Every application route (`/`, `/assets`, `/borrow`, `/admin/*`) MUST require a valid authenticated database session. Unauthenticated requests MUST automatically redirect to `/login`.
-- **Stateful MySQL Session Store**: All active sessions MUST be stored in the MySQL `sessions` table (`id`, `user_id`, `expires_at`). Revoking a session record from `sessions` MUST invalidate access immediately.
+- **Stateful PostgreSQL Session Store**: All active sessions MUST be stored in the PostgreSQL `sessions` table (`id`, `user_id`, `expires_at`). Revoking a session record from `sessions` MUST invalidate access immediately.
 - **Secure Cookie Standard**: Session tokens MUST be transmitted exclusively via `HttpOnly`, `SameSite=Lax` cookies (`pwa_session_id`).
 - **Role-Based Access Control (RBAC)**:
   - **`user` (พนักงานทั่วไป)**: Can search assets, submit borrow requests, and view personal borrowing history (`/borrow`). Strictly blocked from `/admin/*`.
@@ -70,9 +82,26 @@ Application standards for **Provincial Waterworks Authority (การประ�
 
 ---
 
-## 🎨 6. Clean Minimal Light Aesthetics & UX Guidelines
+## ⚡ 7. Server Actions & Standard Response Pattern
+
+- **Action Response Contract**: All Server Actions MUST return a predictable response pattern:
+  ```ts
+  type ActionResponse<T = undefined> = {
+    success: boolean;
+    message?: string;
+    data?: T;
+    error?: string;
+  };
+  ```
+- **Zod Validation**: Input parameters MUST be validated using Zod schemas before performing database queries.
+- **Error Response Safeguard**: Return user-friendly Thai error messages on caught exceptions instead of unhandled server crashes.
+
+---
+
+## 🎨 8. Clean Minimal Light Aesthetics & UX Guidelines
 
 - **Clean Light Theme Priority**: Every application page MUST use a clean, minimal, bright light theme (`bg-[#F8FAFC]` or `bg-slate-50`) that is extremely comfortable on the eyes. Avoid dark, heavy card backgrounds on internal pages.
 - **Pure White Cards (`bg-white`)**: Content containers MUST be pure white cards with soft rounded corners (`rounded-3xl`), light borders (`border-slate-200/70`), and soft drop shadows (`shadow-xl shadow-slate-200/30`).
 - **Compact & High-Contrast Typography**: Headings must use bold, crisp typography with PWA Primary Blue (`#0072BC`) or Deep Navy (`#003366`). Sub-boxes must use soft gray backgrounds (`bg-slate-50 border-slate-100`) with vibrant, readable metric numbers.
+- **User Feedback & Loading States**: Provide responsive interactive states (`useTransition`, disabled/pending buttons) and informative localized feedback during async operations.
 - **No Redundant Navigation Buttons**: Page body content MUST NOT contain redundant navigation buttons that duplicate the main top Navbar links.
