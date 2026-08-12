@@ -75,6 +75,8 @@ export const borrow_requests = pgTable('borrow_requests', {
   request_date: timestamp('request_date').notNull().defaultNow(),
   expected_return_date: timestamp('expected_return_date').notNull(),
   actual_return_date: timestamp('actual_return_date'),
+  approved_by: integer('approved_by'),
+  approved_at: timestamp('approved_at'),
   duration_days: integer('duration_days').notNull().default(7),
   status: borrowStatusEnum('status').notNull().default('pending'),
   purpose: text('purpose').notNull(),
@@ -146,6 +148,12 @@ export const borrowRequestsRelations = relations(borrow_requests, ({ one, many }
   user: one(users, {
     fields: [borrow_requests.user_id],
     references: [users.id],
+    relationName: 'borrower',
+  }),
+  approver: one(users, {
+    fields: [borrow_requests.approved_by],
+    references: [users.id],
+    relationName: 'approver',
   }),
   asset: one(assets, {
     fields: [borrow_requests.asset_id],

@@ -11,6 +11,7 @@ export async function getBorrowRequests(statusFilter?: string) {
   const requests = await db.query.borrow_requests.findMany({
     with: {
       user: true,
+      approver: true,
       asset: {
         with: {
           category: true,

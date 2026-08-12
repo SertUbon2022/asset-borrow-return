@@ -306,7 +306,7 @@ export default function AdminAnnouncementsClient({
                     )}
                     <span className="text-[11px] text-slate-400 flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5 text-[#0072BC]" />
-                      เผยแพร่เมื่อ: {new Date(item.published_at).toLocaleDateString("th-TH")}
+                      เผยแพร่เมื่อ: {new Date(item.published_at).toLocaleDateString("th-TH")} เวลา {new Date(item.published_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
                     </span>
                   </div>
 

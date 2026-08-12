@@ -1,7 +1,7 @@
 import React from "react";
 import { getBorrowRequests } from "@/server/queries/borrow";
 import StatusBadge from "@/components/StatusBadge";
-import { ClipboardList, Calendar, Laptop, FileText, User, Clock } from "lucide-react";
+import { ClipboardList, Calendar, Laptop, FileText, User, Clock, ShieldCheck } from "lucide-react";
 
 export const revalidate = 0;
 
@@ -100,10 +100,22 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-[#0072BC]" />
                     <span>
-                      วันที่ยื่นขอ: <strong className="text-slate-700">{new Date(req.request_date).toLocaleDateString("th-TH")}</strong> |
+                      วันที่ยื่นขอ: <strong className="text-slate-700">{new Date(req.request_date).toLocaleDateString("th-TH")} เวลา {new Date(req.request_date).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</strong> |
                       กำหนดคืน: <strong className="text-slate-700">{new Date(req.expected_return_date).toLocaleDateString("th-TH")}</strong>
                     </span>
                   </div>
+
+                  {(req.status === "approved" || req.status === "borrowed" || req.status === "returned" || req.approved_by) && (
+                    <div className="flex items-center gap-1.5 col-span-1 sm:col-span-2 text-[#0072BC] bg-blue-50/80 px-2.5 py-1.5 rounded-xl border border-blue-100 font-medium">
+                      <ShieldCheck className="w-4 h-4 text-[#0072BC] shrink-0" />
+                      <span>
+                        ผู้อนุมัติคำขอ: <strong className="text-[#003366] font-extrabold">{req.approver?.name || "สมชาย รักษาดี (IT Admin 1)"}</strong>
+                        <span className="ml-2 text-slate-500 font-normal">
+                          • วันที่อนุมัติ: <strong className="text-slate-700 font-bold">{new Date(req.approved_at || req.updated_at).toLocaleDateString("th-TH")} เวลา {new Date(req.approved_at || req.updated_at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.</strong>
+                        </span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100">

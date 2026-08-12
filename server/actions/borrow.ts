@@ -113,11 +113,17 @@ export async function updateBorrowRequestStatusAction(
     // Synchronize request and asset status directly upon approval
     const finalRequestStatus = (newStatus === 'approved' || newStatus === 'borrowed') ? 'borrowed' : newStatus;
 
+    const isApprovalAction = newStatus === 'approved' || newStatus === 'borrowed' || newStatus === 'rejected';
+    const approvedBy = isApprovalAction ? userSession.id : request.approved_by;
+    const approvedAt = isApprovalAction ? (request.approved_at || now) : request.approved_at;
+
     await db
       .update(borrow_requests)
       .set({
         status: finalRequestStatus,
         admin_note: adminNote || request.admin_note,
+        approved_by: approvedBy,
+        approved_at: approvedAt,
         actual_return_date: newStatus === 'returned' ? now : request.actual_return_date,
         updated_at: now,
       })

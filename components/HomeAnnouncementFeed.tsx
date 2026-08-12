@@ -33,14 +33,21 @@ function parseImageUrls(jsonStr?: string | null): string[] {
   }
 }
 
-/** Utility to format date strings to Thai locale standard */
+/** Utility to format date strings to Thai locale standard with time */
 function formatThaiDate(dateInput: string | Date): string {
   try {
-    return new Date(dateInput).toLocaleDateString("th-TH", {
+    const d = new Date(dateInput);
+    const dateStr = d.toLocaleDateString("th-TH", {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
+    const timeStr = d.toLocaleTimeString("th-TH", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    return `${dateStr} เวลา ${timeStr} น.`;
   } catch {
     return "";
   }
