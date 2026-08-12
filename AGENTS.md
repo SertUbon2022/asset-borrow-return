@@ -105,3 +105,18 @@ Application standards for **Provincial Waterworks Authority (การประ�
 - **Compact & High-Contrast Typography**: Headings must use bold, crisp typography with PWA Primary Blue (`#0072BC`) or Deep Navy (`#003366`). Sub-boxes must use soft gray backgrounds (`bg-slate-50 border-slate-100`) with vibrant, readable metric numbers.
 - **User Feedback & Loading States**: Provide responsive interactive states (`useTransition`, disabled/pending buttons) and informative localized feedback during async operations.
 - **No Redundant Navigation Buttons**: Page body content MUST NOT contain redundant navigation buttons that duplicate the main top Navbar links.
+
+---
+
+## 🌿 9. Git & Version Control Standards
+
+- **Conventional Commit Messages**: All git commits MUST follow the Conventional Commits specification:
+  - `feat:` New features or UI components
+  - `fix:` Bug fixes or schema corrections
+  - `docs:` Documentation & rule updates (`AGENTS.md`, `README.md`)
+  - `refactor:` Code refactoring without behavior changes
+  - `style:` Formatting, UI style tweaks, or Tailwind updates
+  - `chore:` Dependency, build script, or `.gitignore` maintenance
+- **Git Safety & Credentials Guard**: NEVER commit `.env`, `.env.local`, or any file containing database credentials, tokens, or secret keys. Ensure `.env*` remains strictly gitignored in `.gitignore`.
+- **Clean Working Tree Policy**: Verify that code builds without errors before committing and pushing to `main` or feature branches.
+
