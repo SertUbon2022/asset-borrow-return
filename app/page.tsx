@@ -4,9 +4,6 @@ import { getDashboardStats, getTopDashboardStats } from "@/server/queries/assets
 import { getBorrowRequests, getCategories, getRecentActivityLogs } from "@/server/queries/borrow";
 import { getAnnouncements } from "@/server/queries/announcements";
 import { getCurrentUserSession } from "@/server/actions/auth";
-import { db } from "@/db";
-import { announcements, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import StatusBadge from "@/components/StatusBadge";
 import HomeAnnouncementFeed from "@/components/HomeAnnouncementFeed";
 import TopStatsGrid from "@/components/TopStatsGrid";
@@ -25,53 +22,14 @@ export const revalidate = 0; // Fresh RSC data
 
 export default async function DashboardPage() {
   const currentUser = await getCurrentUserSession();
-  const stats = await getDashboardStats();
-  const topStats = await getTopDashboardStats();
-  const categoriesList = await getCategories();
-  const recentRequests = await getBorrowRequests();
+  const [stats, topStats, categoriesList, recentRequests, announcementsList] = await Promise.all([
+    getDashboardStats(),
+    getTopDashboardStats(),
+    getCategories(),
+    getBorrowRequests(),
+    getAnnouncements(),
+  ]);
   const recentLogs = currentUser?.role === "admin" ? await getRecentActivityLogs(5) : [];
-  let announcementsList = await getAnnouncements();
-
-  // Auto-seed initial announcements if table is empty
-  if (announcementsList.length === 0) {
-    const adminUser = await db.query.users.findFirst({
-      where: eq(users.role, "admin"),
-    });
-    const adminId = adminUser?.id || 1;
-
-    await db.insert(announcements).values([
-      {
-        title: "กำหนดการตรวจสอบและตรวจนับพัสดุครุภัณฑ์ไอที ประจำปีงบประมาณ 2569",
-        content: "ขอให้ทุกกอง/ฝ่ายดำเนินการตรวจสอบรายการครุภัณฑ์คอมพิวเตอร์และอุปกรณ์ต่อพ่วงในครอบครอง พร้อมยืนยันสถานะผ่านระบบ IT Asset Flow ภายในวันที่ 31 สิงหาคม 2569 เพื่อเตรียมความพร้อมสรุปรายงานพัสดุประจำปี",
-        category: "important",
-        is_pinned: true,
-        created_by: adminId,
-      },
-      {
-        title: "เพิ่มครุภัณฑ์โน้ตบุ๊กประสิทธิภาพสูง (High-Performance Laptop) สำหรับงานประมวลผล GIS และวิศวกรรม",
-        content: "สำนักสารสนเทศได้ทำการจัดสรรคอมพิวเตอร์พกพาสเปกสูงเพิ่มเติม เพื่อสนับสนุนการปฏิบัติงานนอกสถานที่ของวิศวกรและผู้เชี่ยวชาญ กปภ. สามารถยื่นขอยืมใช้งานผ่านหน้าคลังอุปกรณ์ได้แล้ววันนี้",
-        category: "update",
-        is_pinned: false,
-        created_by: adminId,
-      },
-      {
-        title: "แนวทางการยื่นขอยืมอุปกรณ์คอมพิวเตอร์พกพานอกสถานที่และมาตรการคุ้มครองข้อมูลองค์กร กปภ.",
-        content: "แจ้งพนักงานผู้ยื่นขอยืมอุปกรณ์พกพาทุกท่าน โปรดปฏิบัติตามแนวทางการดูแลรักษาสินทรัพย์และหลีกเลี่ยงการเชื่อมต่อเครือข่ายสาธารณะที่ไม่ปลอดภัยระหว่างนำอุปกรณ์ออกนอกสถานที่",
-        category: "security",
-        is_pinned: false,
-        created_by: adminId,
-      },
-      {
-        title: "กำหนดการปรับปรุงเซิร์ฟเวอร์สำรองข้อมูลประจำเดือน เพื่อเพิ่มความเสถียรของระบบ",
-        content: "ระบบบริหารยืม-คืน ครุภัณฑ์จะเปิดให้บริการตามปกติ แต่จะมีการปิดปรับปรุงเซิร์ฟเวอร์ย่อยในวันศุกร์สัปดาห์หน้า เวลา 20:00 - 22:00 น.",
-        category: "maintenance",
-        is_pinned: false,
-        created_by: adminId,
-      },
-    ]);
-
-    announcementsList = await getAnnouncements();
-  }
 
   const availableCount = stats.availableAssets;
   const borrowedCount = stats.borrowedAssets;
@@ -189,8 +147,8 @@ export default async function DashboardPage() {
                     key={req.id}
                     className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-xs"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-bold text-slate-900 line-clamp-1">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-slate-900 truncate min-w-0 flex-1">
                         {req.asset.name}
                       </span>
                       <StatusBadge type="request" status={req.status} size="sm" />

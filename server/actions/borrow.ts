@@ -7,21 +7,22 @@ import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { getCurrentUserSession } from './auth';
+import { sendBorrowRequestLineNotification } from '@/lib/line';
 
 const createBorrowSchema = z.object({
-  userId: z.number().positive(),
-  assetId: z.number().positive(),
+  assetId: z.number().positive('กรุณาระบุรหัสครุภัณฑ์'),
   expectedReturnDate: z.string().min(1, 'กรุณาระบุกำหนดวันคืน'),
   durationDays: z.number().int().positive().optional().default(7),
   purpose: z.string().min(3, 'กรุณาระบุวัตถุประสงค์การยืมอย่างน้อย 3 ตัวอักษร'),
+  userId: z.number().optional(),
 });
 
 export async function createBorrowRequestAction(formData: {
-  userId: number;
   assetId: number;
   expectedReturnDate: string;
   durationDays?: number;
   purpose: string;
+  userId?: number;
 }) {
   try {
     const userSession = await getCurrentUserSession();
@@ -68,6 +69,19 @@ export async function createBorrowRequestAction(formData: {
       action: 'SUBMIT_REQUEST',
       details: `ยื่นคำขอยืมอุปกรณ์ ${asset.name} (${asset.asset_tag})`,
     });
+
+    // Send LINE Flex Message notification to LINE group/channel (non-blocking)
+    sendBorrowRequestLineNotification({
+      requestId: newRequestId,
+      userName: userSession.name,
+      userDepartment: userSession.department,
+      assetName: asset.name,
+      assetTag: asset.asset_tag,
+      requestDate: new Date(),
+      expectedReturnDate: returnDate,
+      durationDays: calculatedDuration,
+      purpose: validated.purpose,
+    }).catch((err) => console.error('[LINE API Async Error]', err));
 
     revalidatePath('/');
     revalidatePath('/assets');

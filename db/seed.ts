@@ -264,6 +264,49 @@ async function seed() {
       console.log('ℹ️ Assets table already contains mock IT assets. Skipping.');
     }
 
+    // 4. Seed Announcements if empty
+    const existingAnnouncements = await db.select().from(schema.announcements);
+    if (existingAnnouncements.length === 0) {
+      const adminUser = await db.query.users.findFirst({
+        where: eq(users.role, 'admin'),
+      });
+      const adminId = adminUser?.id || 1;
+
+      await db.insert(schema.announcements).values([
+        {
+          title: 'กำหนดการตรวจสอบและตรวจนับพัสดุครุภัณฑ์ไอที ประจำปีงบประมาณ 2569',
+          content: 'ขอให้ทุกกอง/ฝ่ายดำเนินการตรวจสอบรายการครุภัณฑ์คอมพิวเตอร์และอุปกรณ์ต่อพ่วงในครอบครอง พร้อมยืนยันสถานะผ่านระบบ IT Asset Flow ภายในวันที่ 31 สิงหาคม 2569 เพื่อเตรียมความพร้อมสรุปรายงานพัสดุประจำปี',
+          category: 'important',
+          is_pinned: true,
+          created_by: adminId,
+        },
+        {
+          title: 'เพิ่มครุภัณฑ์โน้ตบุ๊กประสิทธิภาพสูง (High-Performance Laptop) สำหรับงานประมวลผล GIS และวิศวกรรม',
+          content: 'สำนักสารสนเทศได้ทำการจัดสรรคอมพิวเตอร์พกพาสเปกสูงเพิ่มเติม เพื่อสนับสนุนการปฏิบัติงานนอกสถานที่ของวิศวกรและผู้เชี่ยวชาญ กปภ. สามารถยื่นขอยืมใช้งานผ่านหน้าคลังอุปกรณ์ได้แล้ววันนี้',
+          category: 'update',
+          is_pinned: false,
+          created_by: adminId,
+        },
+        {
+          title: 'แนวทางการยื่นขอยืมอุปกรณ์คอมพิวเตอร์พกพานอกสถานที่และมาตรการคุ้มครองข้อมูลองค์กร กปภ.',
+          content: 'แจ้งพนักงานผู้ยื่นขอยืมอุปกรณ์พกพาทุกท่าน โปรดปฏิบัติตามแนวทางการดูแลรักษาสินทรัพย์และหลีกเลี่ยงการเชื่อมต่อเครือข่ายสาธารณะที่ไม่ปลอดภัยระหว่างนำอุปกรณ์ออกนอกสถานที่',
+          category: 'security',
+          is_pinned: false,
+          created_by: adminId,
+        },
+        {
+          title: 'กำหนดการปรับปรุงเซิร์ฟเวอร์สำรองข้อมูลประจำเดือน เพื่อเพิ่มความเสถียรของระบบ',
+          content: 'ระบบบริหารยืม-คืน ครุภัณฑ์จะเปิดให้บริการตามปกติ แต่จะมีการปิดปรับปรุงเซิร์ฟเวอร์ย่อยในวันศุกร์สัปดาห์หน้า เวลา 20:00 - 22:00 น.',
+          category: 'maintenance',
+          is_pinned: false,
+          created_by: adminId,
+        },
+      ]);
+      console.log('✅ Announcements seeded.');
+    } else {
+      console.log('ℹ️ Announcements table already has data. Skipping.');
+    }
+
     console.log('🎉 Seeding check finished successfully!');
     process.exit(0);
   } catch (err) {

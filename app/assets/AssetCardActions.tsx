@@ -98,7 +98,6 @@ export default function AssetCardActions({
     setMessage(null);
 
     const res = await createBorrowRequestAction({
-      userId: 2, // Default Somchai Jaidee
       assetId,
       expectedReturnDate,
       durationDays,

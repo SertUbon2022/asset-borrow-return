@@ -1,7 +1,9 @@
 import React from "react";
+import { getCurrentUserSession } from "@/server/actions/auth";
 import { getBorrowRequests } from "@/server/queries/borrow";
 import StatusBadge from "@/components/StatusBadge";
 import { ClipboardList, Calendar, Laptop, FileText, User, Clock, ShieldCheck } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const revalidate = 0;
 
@@ -10,9 +12,18 @@ interface BorrowPageProps {
 }
 
 export default async function BorrowPage({ searchParams }: BorrowPageProps) {
+  const session = await getCurrentUserSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
   const resolvedParams = await searchParams;
   const statusFilter = resolvedParams.status || "all";
-  const requests = await getBorrowRequests(statusFilter);
+  const requests = await getBorrowRequests(
+    statusFilter,
+    session.role === "user" ? session.id : undefined
+  );
 
   const filterTabs = [
     { label: "ทั้งหมด", value: "all" },

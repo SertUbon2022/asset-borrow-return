@@ -1,8 +1,10 @@
 import React from "react";
+import { getCurrentUserSession } from "@/server/actions/auth";
 import { getBorrowRequests } from "@/server/queries/borrow";
 import StatusBadge from "@/components/StatusBadge";
 import AdminRequestActions from "./AdminRequestActions";
 import { ShieldCheck, Laptop, User, Calendar, FileText, Clock } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const revalidate = 0;
 
@@ -11,6 +13,16 @@ interface AdminRequestsPageProps {
 }
 
 export default async function AdminRequestsPage({ searchParams }: AdminRequestsPageProps) {
+  const session = await getCurrentUserSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  if (session.role !== "admin") {
+    redirect("/");
+  }
+
   const resolvedParams = await searchParams;
   const statusFilter = resolvedParams.status || "all";
   const requests = await getBorrowRequests(statusFilter);

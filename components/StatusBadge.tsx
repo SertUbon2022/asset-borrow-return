@@ -8,6 +8,8 @@ import {
   RotateCcw,
   Wrench,
   Archive,
+  PackageCheck,
+  ShieldCheck,
 } from "lucide-react";
 
 export type AssetStatus = "available" | "borrowed" | "maintenance" | "retired";
@@ -32,30 +34,30 @@ const assetStatusConfig: Record<
 > = {
   available: {
     label: "พร้อมใช้งาน",
-    bg: "bg-white/95 backdrop-blur-md shadow-xs",
-    text: "text-emerald-700 font-extrabold",
-    border: "border-emerald-300/90",
+    bg: "bg-emerald-50/90 hover:bg-emerald-100/90",
+    text: "text-emerald-700 font-bold",
+    border: "border-emerald-200/80",
     icon: CheckCircle2,
   },
   borrowed: {
     label: "ถูกยืมใช้งาน",
-    bg: "bg-white/95 backdrop-blur-md shadow-xs",
-    text: "text-[#0072BC] font-extrabold",
-    border: "border-blue-300/90",
+    bg: "bg-sky-50/90 hover:bg-sky-100/90",
+    text: "text-sky-700 font-bold",
+    border: "border-sky-200/80",
     icon: Clock,
   },
   maintenance: {
     label: "ส่งซ่อมบำรุง",
-    bg: "bg-white/95 backdrop-blur-md shadow-xs",
-    text: "text-amber-800 font-extrabold",
-    border: "border-amber-400/90",
+    bg: "bg-amber-50/90 hover:bg-amber-100/90",
+    text: "text-amber-800 font-bold",
+    border: "border-amber-200/80",
     icon: Wrench,
   },
   retired: {
     label: "จำหน่ายออก",
-    bg: "bg-white/95 backdrop-blur-md shadow-xs",
-    text: "text-slate-700 font-extrabold",
-    border: "border-slate-300/90",
+    bg: "bg-slate-100/90 hover:bg-slate-200/90",
+    text: "text-slate-600 font-bold",
+    border: "border-slate-200/80",
     icon: Archive,
   },
 };
@@ -66,51 +68,51 @@ const requestStatusConfig: Record<
 > = {
   pending: {
     label: "รออนุมัติ",
-    bg: "bg-amber-100/90",
-    text: "text-amber-900 font-extrabold",
-    border: "border-amber-300",
+    bg: "bg-amber-50/90 hover:bg-amber-100/90",
+    text: "text-amber-800 font-bold",
+    border: "border-amber-200/90",
     icon: Clock,
   },
   approved: {
     label: "อนุมัติแล้ว",
-    bg: "bg-blue-100/90",
-    text: "text-blue-900 font-extrabold",
-    border: "border-blue-300",
-    icon: CheckCircle2,
+    bg: "bg-blue-50/90 hover:bg-blue-100/90",
+    text: "text-[#0072BC] font-bold",
+    border: "border-blue-200/90",
+    icon: ShieldCheck,
   },
   rejected: {
     label: "ปฏิเสธคำขอ",
-    bg: "bg-rose-100/90",
-    text: "text-rose-900 font-extrabold",
-    border: "border-rose-300",
+    bg: "bg-rose-50/90 hover:bg-rose-100/90",
+    text: "text-rose-700 font-bold",
+    border: "border-rose-200/90",
     icon: XCircle,
   },
   borrowed: {
     label: "รับอุปกรณ์แล้ว",
-    bg: "bg-indigo-100/90",
-    text: "text-indigo-900 font-extrabold",
-    border: "border-indigo-300",
-    icon: Clock,
+    bg: "bg-indigo-50/90 hover:bg-indigo-100/90",
+    text: "text-indigo-700 font-bold",
+    border: "border-indigo-200/90",
+    icon: PackageCheck,
   },
   returned: {
     label: "คืนเรียบร้อย",
-    bg: "bg-emerald-100/90",
-    text: "text-emerald-900 font-extrabold",
-    border: "border-emerald-300",
+    bg: "bg-emerald-50/90 hover:bg-emerald-100/90",
+    text: "text-emerald-700 font-bold",
+    border: "border-emerald-200/90",
     icon: RotateCcw,
   },
   overdue: {
     label: "เกินกำหนดคืน",
-    bg: "bg-red-200/90",
-    text: "text-red-950 font-black",
-    border: "border-red-400",
+    bg: "bg-red-50/90 hover:bg-red-100/90",
+    text: "text-red-700 font-black",
+    border: "border-red-300/90",
     icon: AlertTriangle,
   },
   cancelled: {
     label: "ยกเลิกคำขอ",
-    bg: "bg-slate-100/90",
-    text: "text-slate-800 font-extrabold",
-    border: "border-slate-300",
+    bg: "bg-slate-100/90 hover:bg-slate-200/90",
+    text: "text-slate-600 font-bold",
+    border: "border-slate-200/80",
     icon: XCircle,
   },
 };
@@ -124,15 +126,15 @@ export default function StatusBadge({ type, status, size = "md" }: StatusBadgePr
   const Icon = config.icon;
 
   const sizeClasses = {
-    sm: "px-2 py-0.5 text-xs gap-1",
-    md: "px-2.5 py-1 text-xs sm:text-sm gap-1.5",
-    lg: "px-3 py-1.5 text-sm gap-2 font-medium",
+    sm: "px-2.5 py-0.5 text-xs gap-1.5",
+    md: "px-3 py-1 text-xs gap-1.5",
+    lg: "px-3.5 py-1.5 text-sm gap-2",
   };
 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full font-medium border shadow-xs transition-colors",
+        "inline-flex items-center justify-center whitespace-nowrap shrink-0 rounded-full border shadow-2xs transition-colors select-none",
         config.bg,
         config.text,
         config.border,
@@ -140,7 +142,7 @@ export default function StatusBadge({ type, status, size = "md" }: StatusBadgePr
       )}
     >
       <Icon className="w-3.5 h-3.5 shrink-0" />
-      <span>{config.label}</span>
+      <span className="whitespace-nowrap">{config.label}</span>
     </span>
   );
 }

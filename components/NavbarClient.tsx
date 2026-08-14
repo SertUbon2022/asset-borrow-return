@@ -26,7 +26,6 @@ import {
   Menu,
   X,
   Settings2,
-  User,
   LogIn,
 } from "lucide-react";
 
