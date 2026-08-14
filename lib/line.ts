@@ -5,6 +5,7 @@ interface BorrowNotificationData {
   assetName: string;
   assetTag: string;
   categoryName?: string;
+  imageUrl?: string | null;
   requestDate: Date;
   expectedReturnDate: Date;
   durationDays: number;
@@ -30,58 +31,71 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const actionUrl = `${appUrl}/admin/requests`;
+  const approveUrl = `${appUrl}/admin/requests?highlight=${data.requestId}&action=approve`;
+  const rejectUrl = `${appUrl}/admin/requests?highlight=${data.requestId}&action=reject`;
+  const viewUrl = `${appUrl}/admin/requests?highlight=${data.requestId}`;
+
+  const defaultFallbackImage = 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800';
+  let displayImage = data.imageUrl?.trim() || defaultFallbackImage;
+  if (displayImage.startsWith('/')) {
+    displayImage = `${appUrl}${displayImage}`;
+  }
 
   return {
     type: 'flex',
-    altText: `🔔 แจ้งเตือนยืมอุปกรณ์ใหม่: ${data.assetName} โดย ${data.userName}`,
+    altText: `📋 คำขอยืมอุปกรณ์ใหม่: ${data.assetName} โดย ${data.userName}`,
     contents: {
       type: 'bubble',
       size: 'mega',
       header: {
         type: 'box',
         layout: 'vertical',
-        backgroundColor: '#0072BC',
-        paddingAll: 'lg',
+        backgroundColor: '#003366',
+        paddingAll: '16px',
         contents: [
           {
-            type: 'box',
-            layout: 'baseline',
-            contents: [
-              {
-                type: 'text',
-                text: 'การประปาส่วนภูมิภาค (กปภ.)',
-                color: '#E5A823',
-                size: 'xs',
-                weight: 'bold',
-                flex: 0,
-              },
-            ],
-          },
-          {
             type: 'text',
-            text: '🔔 แจ้งเตือนคำขอยืมอุปกรณ์ใหม่',
-            color: '#FFFFFF',
-            size: 'lg',
+            text: '💧 การประปาส่วนภูมิภาค (กปภ.)',
+            color: '#E5A823',
+            size: 'xs',
             weight: 'bold',
-            margin: 'sm',
           },
           {
             type: 'text',
-            text: 'PWA Enterprise IT Asset Flow System',
-            color: '#E0F2FE',
+            text: 'แจ้งเตือนคำขอยืมอุปกรณ์ใหม่',
+            color: '#FFFFFF',
+            size: 'md',
+            weight: 'bold',
+            wrap: true,
+            margin: 'xs',
+          },
+          {
+            type: 'text',
+            text: 'PWA IT Asset Flow System',
+            color: '#00A8FF',
             size: 'xxs',
             margin: 'xs',
           },
         ],
       },
+      hero: {
+        type: 'image',
+        url: displayImage,
+        size: 'full',
+        aspectRatio: '20:11',
+        aspectMode: 'cover',
+        action: {
+          type: 'uri',
+          uri: viewUrl,
+        },
+      },
       body: {
         type: 'box',
         layout: 'vertical',
         spacing: 'md',
-        paddingAll: 'lg',
+        paddingAll: '16px',
         contents: [
-          // Top Request Badge & Status
+          // 1. Status Bar
           {
             type: 'box',
             layout: 'horizontal',
@@ -93,8 +107,8 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                 layout: 'horizontal',
                 backgroundColor: '#EFF6FF',
                 cornerRadius: 'md',
-                paddingStart: 'sm',
-                paddingEnd: 'sm',
+                paddingStart: 'md',
+                paddingEnd: 'md',
                 paddingTop: 'xs',
                 paddingBottom: 'xs',
                 contents: [
@@ -112,8 +126,8 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                 layout: 'horizontal',
                 backgroundColor: '#FEF3C7',
                 cornerRadius: 'md',
-                paddingStart: 'sm',
-                paddingEnd: 'sm',
+                paddingStart: 'md',
+                paddingEnd: 'md',
                 paddingTop: 'xs',
                 paddingBottom: 'xs',
                 contents: [
@@ -128,16 +142,15 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
               },
             ],
           },
-          // Asset Box
+          // 2. Asset Box
           {
             type: 'box',
             layout: 'vertical',
             backgroundColor: '#F8FAFC',
             cornerRadius: 'lg',
-            paddingAll: 'md',
-            borderColor: '#E2E8F0',
+            paddingAll: '12px',
+            borderColor: '#CBD5E1',
             borderWidth: '1px',
-            margin: 'sm',
             contents: [
               {
                 type: 'text',
@@ -154,9 +167,18 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                 contents: [
                   {
                     type: 'text',
-                    text: `รหัสครุภัณฑ์: ${data.assetTag}`,
+                    text: 'รหัสครุภัณฑ์: ',
                     color: '#64748B',
                     size: 'xs',
+                    flex: 0,
+                  },
+                  {
+                    type: 'text',
+                    text: data.assetTag,
+                    color: '#0F172A',
+                    size: 'xs',
+                    weight: 'bold',
+                    flex: 0,
                   },
                   ...(data.categoryName
                     ? [
@@ -166,6 +188,7 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                           color: '#0072BC',
                           size: 'xs' as const,
                           weight: 'bold' as const,
+                          flex: 1,
                         },
                       ]
                     : []),
@@ -173,20 +196,17 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
               },
             ],
           },
-          // Divider
+          // 3. Divider
           {
             type: 'separator',
-            color: '#F1F5F9',
-            margin: 'md',
+            color: '#E2E8F0',
           },
-          // Detail Rows
+          // 4. Details List
           {
             type: 'box',
             layout: 'vertical',
             spacing: 'sm',
-            margin: 'md',
             contents: [
-              // Row 1: User
               {
                 type: 'box',
                 layout: 'baseline',
@@ -194,7 +214,7 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                 contents: [
                   {
                     type: 'text',
-                    text: '👤 ผู้ยืม:',
+                    text: '👤 ผู้ขอยืม:',
                     color: '#64748B',
                     size: 'xs',
                     flex: 3,
@@ -210,7 +230,6 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                   },
                 ],
               },
-              // Row 2: Request Date
               {
                 type: 'box',
                 layout: 'baseline',
@@ -232,7 +251,6 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                   },
                 ],
               },
-              // Row 3: Return Date & Duration
               {
                 type: 'box',
                 layout: 'baseline',
@@ -255,14 +273,13 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
                   },
                 ],
               },
-              // Row 4: Purpose
               {
                 type: 'box',
                 layout: 'vertical',
-                margin: 'sm',
                 backgroundColor: '#F1F5F9',
                 cornerRadius: 'md',
-                paddingAll: 'sm',
+                paddingAll: '8px',
+                margin: 'xs',
                 contents: [
                   {
                     type: 'text',
@@ -288,17 +305,40 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
       footer: {
         type: 'box',
         layout: 'vertical',
-        paddingAll: 'lg',
+        spacing: 'sm',
+        paddingAll: '16px',
         paddingTop: 'none',
         contents: [
           {
             type: 'button',
             action: {
               type: 'uri',
-              label: 'ตรวจสอบ & อนุมัติคำขอ',
-              uri: actionUrl,
+              label: '✅ อนุมัติคำขอยืมอุปกรณ์',
+              uri: approveUrl,
             },
             style: 'primary',
+            color: '#0072BC',
+            height: 'sm',
+          },
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '❌ ปฏิเสธคำขอนี้',
+              uri: rejectUrl,
+            },
+            style: 'primary',
+            color: '#003366',
+            height: 'sm',
+          },
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '🔍 ตรวจสอบรายละเอียดในระบบ',
+              uri: viewUrl,
+            },
+            style: 'link',
             color: '#0072BC',
             height: 'sm',
           },

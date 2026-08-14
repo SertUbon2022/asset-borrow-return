@@ -35,6 +35,7 @@ export async function createBorrowRequestAction(formData: {
     // Verify asset exists and is available
     const asset = await db.query.assets.findFirst({
       where: eq(assets.id, validated.assetId),
+      with: { category: true },
     });
 
     if (!asset) {
@@ -77,6 +78,8 @@ export async function createBorrowRequestAction(formData: {
       userDepartment: userSession.department,
       assetName: asset.name,
       assetTag: asset.asset_tag,
+      categoryName: asset.category?.name,
+      imageUrl: asset.image_url,
       requestDate: new Date(),
       expectedReturnDate: returnDate,
       durationDays: calculatedDuration,
@@ -119,7 +122,32 @@ export async function updateBorrowRequestStatusAction(
     });
 
     if (!request) {
-      return { success: false, message: 'ไม่พบรายการคำขอยืม' };
+      return { success: false, message: 'ไม่พบรายการคำขอยืมในระบบ' };
+    }
+
+    const isApprovalAction = newStatus === 'approved' || newStatus === 'borrowed' || newStatus === 'rejected';
+
+    // 1. Verification check: prevent double approval or acting on already-processed requests
+    if (isApprovalAction && request.status !== 'pending') {
+      const statusThaiMap: Record<string, string> = {
+        approved: 'ได้รับการอนุมัติแล้ว',
+        borrowed: 'ได้รับการอนุมัติและส่งมอบอุปกรณ์ไปแล้ว',
+        returned: 'ถูกส่งคืนอุปกรณ์เรียบร้อยแล้ว',
+        rejected: 'ถูกปฏิเสธคำขอไปแล้ว',
+        cancelled: 'ถูกยกเลิกคำขอไปแล้ว',
+      };
+      const statusMsg = statusThaiMap[request.status] || `สถานะคือ ${request.status}`;
+      return {
+        success: false,
+        message: `คำขอนี้${statusMsg} (ไม่สามารถทำรายการซ้ำได้)`,
+      };
+    }
+
+    if (newStatus === 'returned' && request.status !== 'borrowed' && request.status !== 'approved') {
+      return {
+        success: false,
+        message: `ไม่สามารถบันทึกรับคืนได้ เนื่องจากสถานะปัจจุบันคือ "${request.status}"`,
+      };
     }
 
     const now = new Date();
@@ -127,7 +155,6 @@ export async function updateBorrowRequestStatusAction(
     // Synchronize request and asset status directly upon approval
     const finalRequestStatus = (newStatus === 'approved' || newStatus === 'borrowed') ? 'borrowed' : newStatus;
 
-    const isApprovalAction = newStatus === 'approved' || newStatus === 'borrowed' || newStatus === 'rejected';
     const approvedBy = isApprovalAction ? userSession.id : request.approved_by;
     const approvedAt = isApprovalAction ? (request.approved_at || now) : request.approved_at;
 
