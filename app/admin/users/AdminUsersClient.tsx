@@ -213,6 +213,7 @@ export default function AdminUsersClient({
                 <th className="py-3.5 px-4">อีเมล (Email)</th>
                 <th className="py-3.5 px-4">สังกัด/ฝ่ายงาน</th>
                 <th className="py-3.5 px-4">สิทธิ์ในระบบ</th>
+                <th className="py-3.5 px-4">สถานะ LINE</th>
                 <th className="py-3.5 px-4">วันที่ลงทะเบียน</th>
                 <th className="py-3.5 px-4 sm:px-6 text-right">จัดการ</th>
               </tr>
@@ -220,7 +221,7 @@ export default function AdminUsersClient({
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-slate-400">
                     ไม่พบผู้ใช้งานตามเงื่อนไขที่ค้นหา
                   </td>
                 </tr>
@@ -260,6 +261,21 @@ export default function AdminUsersClient({
                           <UserIcon className="w-3 h-3 text-slate-400" />
                           พนักงานทั่วไป
                         </Badge>
+                      )}
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      {u.line_user_id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            {u.line_display_name || "ผูกแล้ว"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-normal">
+                          ยังไม่ได้ผูก
+                        </span>
                       )}
                     </td>
 

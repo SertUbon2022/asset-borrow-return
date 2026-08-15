@@ -27,7 +27,10 @@ import {
   X,
   Settings2,
   LogIn,
+  MessageCircle,
+  CheckCircle2,
 } from "lucide-react";
+import LineAccountModal from "./LineAccountModal";
 
 interface NavbarClientProps {
   currentUser: {
@@ -36,6 +39,9 @@ interface NavbarClientProps {
     name: string;
     department: string | null;
     role: "admin" | "user";
+    lineUserId?: string | null;
+    lineDisplayName?: string | null;
+    linePictureUrl?: string | null;
   } | null;
 }
 
@@ -82,10 +88,12 @@ const MobileMenuDrawer = memo(({
   pathname,
   currentUser,
   onClose,
+  onOpenLineModal,
 }: {
   pathname: string;
   currentUser: NavbarClientProps["currentUser"];
   onClose: () => void;
+  onOpenLineModal: () => void;
 }) => (
   <div className="md:hidden bg-[#003366] border-t border-blue-600 px-4 py-3 space-y-3">
     {baseNavItems.map((item) => {
@@ -151,19 +159,45 @@ const MobileMenuDrawer = memo(({
     )}
 
     {currentUser ? (
-      <div className="pt-3 border-t border-blue-700 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div className="w-7 h-7 rounded-full bg-[#E5A823] text-slate-900 font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
-            {currentUser.name.charAt(0)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
-            <div className="text-[10px] text-blue-200 font-light truncate">
-              {currentUser.role === "admin" ? "เจ้าหน้าที่ IT Admin" : currentUser.department || "พนักงาน กปภ."}
+      <div className="pt-3 border-t border-blue-700 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="w-7 h-7 rounded-full bg-[#E5A823] text-slate-900 font-bold flex items-center justify-center shrink-0 text-xs shadow-xs">
+              {currentUser.name.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
+              <div className="text-[10px] text-blue-200 font-light truncate">
+                {currentUser.role === "admin" ? "เจ้าหน้าที่ IT Admin" : currentUser.department || "พนักงาน กปภ."}
+              </div>
             </div>
           </div>
+          <LogoutButton />
         </div>
-        <LogoutButton />
+
+        {/* Mobile LINE Account Button */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onOpenLineModal();
+          }}
+          className="flex items-center justify-between w-full px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-[#06C755] fill-current" />
+            <span>สถานะบัญชี LINE</span>
+          </div>
+          {currentUser.lineUserId ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <CheckCircle2 className="w-3 h-3" /> ผูกแล้ว
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-500/30">
+              ยังไม่ผูก
+            </span>
+          )}
+        </button>
       </div>
     ) : (
       <div className="pt-3 border-t border-blue-700">
@@ -184,6 +218,7 @@ MobileMenuDrawer.displayName = "MobileMenuDrawer";
 export default function NavbarClient({ currentUser }: NavbarClientProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [lineModalOpen, setLineModalOpen] = useState(false);
 
   const closeMobileMenu = useCallback(() => {
     setMobileMenuOpen(false);
@@ -301,7 +336,25 @@ export default function NavbarClient({ currentUser }: NavbarClientProps) {
               )}
 
               {currentUser ? (
-                <div className="ml-2 border-l border-blue-400/40 pl-3.5 flex items-center gap-3">
+                <div className="ml-2 border-l border-blue-400/40 pl-3.5 flex items-center gap-2">
+                  {/* LINE Quick Action Button */}
+                  <button
+                    type="button"
+                    onClick={() => setLineModalOpen(true)}
+                    title={currentUser.lineUserId ? `ผูก LINE แล้ว: ${currentUser.lineDisplayName || ''}` : "คลิกเพื่อผูกบัญชี LINE"}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                      currentUser.lineUserId
+                        ? "bg-[#06C755]/20 hover:bg-[#06C755]/30 text-white border border-[#06C755]/40"
+                        : "bg-white/10 hover:bg-white/20 text-white/90 border border-white/20"
+                    )}
+                  >
+                    <MessageCircle className="w-4 h-4 text-[#06C755] fill-current" />
+                    <span className="hidden xl:inline text-[11px]">
+                      {currentUser.lineUserId ? "LINE ผูกแล้ว" : "ผูก LINE"}
+                    </span>
+                  </button>
+
                   {/* User Profile Badge */}
                   <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-white/15 border border-white/20 text-xs shadow-xs">
                     <div className="w-7 h-7 rounded-full bg-[#E5A823] text-slate-900 font-extrabold flex items-center justify-center shrink-0 text-xs shadow-xs">
@@ -354,9 +407,19 @@ export default function NavbarClient({ currentUser }: NavbarClientProps) {
             pathname={pathname}
             currentUser={currentUser}
             onClose={closeMobileMenu}
+            onOpenLineModal={() => setLineModalOpen(true)}
           />
         )}
       </nav>
+
+      {/* LINE Account Modal */}
+      {currentUser && (
+        <LineAccountModal
+          isOpen={lineModalOpen}
+          onClose={() => setLineModalOpen(false)}
+          currentUser={currentUser}
+        />
+      )}
     </header>
   );
 }

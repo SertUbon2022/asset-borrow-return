@@ -37,6 +37,9 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 255 }).notNull(),
   department: varchar('department', { length: 255 }),
   role: roleEnum('role').notNull().default('user'),
+  line_user_id: varchar('line_user_id', { length: 100 }).unique(),
+  line_display_name: varchar('line_display_name', { length: 255 }),
+  line_picture_url: text('line_picture_url'),
   created_at: timestamp('created_at').notNull().defaultNow(),
   updated_at: timestamp('updated_at').notNull().defaultNow(),
 });

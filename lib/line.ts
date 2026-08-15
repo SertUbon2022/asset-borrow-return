@@ -397,3 +397,124 @@ export async function sendBorrowRequestLineNotification(data: BorrowNotification
     return false;
   }
 }
+
+export interface LineGroupMemberProfile {
+  isMember: boolean;
+  displayName?: string;
+  userId?: string;
+  pictureUrl?: string;
+  error?: string;
+}
+
+/**
+ * Verifies whether a given LINE User ID is a member of the designated LINE Group.
+ * Calls LINE Messaging API GET /v2/bot/group/{groupId}/member/{userId}
+ */
+export async function verifyUserInLineGroup(lineUserId: string): Promise<LineGroupMemberProfile> {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const groupId = process.env.LINE_GROUP_ID;
+
+  if (!token) {
+    return {
+      isMember: false,
+      error: 'ระบบยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN กรุณาติดต่อผู้ดูแลระบบ',
+    };
+  }
+
+  if (!groupId || groupId.trim() === '') {
+    return {
+      isMember: false,
+      error: 'ระบบยังไม่ได้ตั้งค่า LINE_GROUP_ID เป้าหมาย กรุณาติดต่อผู้ดูแลระบบ',
+    };
+  }
+
+  try {
+    const trimmedUserId = lineUserId.trim();
+    const trimmedGroupId = groupId.trim();
+
+    // Call LINE Group Member Profile endpoint
+    const response = await fetch(
+      `https://api.line.me/v2/bot/group/${trimmedGroupId}/member/${trimmedUserId}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: 'no-store',
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        isMember: true,
+        displayName: data.displayName,
+        userId: data.userId,
+        pictureUrl: data.pictureUrl,
+      };
+    }
+
+    if (response.status === 404) {
+      return {
+        isMember: false,
+        error: 'ไม่พบบัญชี LINE ของท่านในกลุ่ม LINE ทางการของระบบ (กรุณาตรวจสอบว่าได้เข้าร่วมกลุ่ม LINE ที่กำหนดและบอทอยู่ในกลุ่มแล้วหรือไม่)',
+      };
+    }
+
+    const errText = await response.text();
+    console.error(`[LINE API Group Member Check Error] Status ${response.status}: ${errText}`);
+    return {
+      isMember: false,
+      error: `LINE API ตรวจสอบสมาชิกไม่สำเร็จ (รหัสสถานะ: ${response.status})`,
+    };
+  } catch (error) {
+    console.error('[LINE API Exception] Failed to verify group member:', error);
+    return {
+      isMember: false,
+      error: 'เกิดข้อผิดพลาดในการเชื่อมต่อไปยัง LINE API',
+    };
+  }
+}
+
+/**
+ * Gets LINE Group Summary (Group Name & Icon)
+ */
+export async function getLineGroupSummary(): Promise<{
+  groupId: string;
+  groupName?: string;
+  pictureUrl?: string;
+} | null> {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const groupId = process.env.LINE_GROUP_ID;
+
+  if (!token || !groupId || groupId.trim() === '') {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.line.me/v2/bot/group/${groupId.trim()}/summary`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        next: { revalidate: 300 },
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        groupId: data.groupId,
+        groupName: data.groupName,
+        pictureUrl: data.pictureUrl,
+      };
+    }
+
+    return { groupId: groupId.trim() };
+  } catch {
+    return { groupId: groupId.trim() };
+  }
+}
+

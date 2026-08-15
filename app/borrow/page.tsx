@@ -4,6 +4,7 @@ import { getBorrowRequests } from "@/server/queries/borrow";
 import StatusBadge from "@/components/StatusBadge";
 import { ClipboardList, Calendar, Laptop, FileText, User, Clock, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
+import LineLinkBanner from "@/components/LineLinkBanner";
 
 export const revalidate = 0;
 
@@ -35,6 +36,9 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
 
   return (
     <div className="space-y-6 pb-12">
+      {/* LINE Link Status / Reminder Banner */}
+      <LineLinkBanner currentUser={session} />
+
       {/* Clean Page Title Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>

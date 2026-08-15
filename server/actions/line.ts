@@ -1,0 +1,225 @@
+'use server';
+
+import 'server-only';
+import { db } from '@/db';
+import { users, activity_logs } from '@/db/schema';
+import { eq, and, ne } from 'drizzle-orm';
+import { getCurrentUserSession } from './auth';
+import { verifyUserInLineGroup, getLineGroupSummary } from '@/lib/line';
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+const linkLineSchema = z.object({
+  lineUserId: z.string().min(5, 'LINE User ID ไม่ถูกต้อง'),
+  displayName: z.string().optional(),
+  pictureUrl: z.string().optional(),
+});
+
+export type ActionResponse<T = undefined> = {
+  success: boolean;
+  message?: string;
+  data?: T;
+  error?: string;
+};
+
+/**
+ * Verifies LINE Group membership and links the LINE account to the current logged-in user.
+ */
+export async function linkLineAccount(
+  data: z.infer<typeof linkLineSchema>
+): Promise<ActionResponse<{ lineUserId: string; displayName?: string }>> {
+  try {
+    const session = await getCurrentUserSession();
+    if (!session) {
+      return {
+        success: false,
+        error: 'กรุณาเข้าสู่ระบบก่อนทำรายการผูกบัญชี LINE',
+      };
+    }
+
+    const validated = linkLineSchema.parse(data);
+    const lineUserId = validated.lineUserId.trim();
+
+    // 1. Verify that the user is an active member in the designated LINE Group
+    const verification = await verifyUserInLineGroup(lineUserId);
+    if (!verification.isMember) {
+      return {
+        success: false,
+        error:
+          verification.error ||
+          'ไม่สามารถผูกบัญชีได้: บัญชี LINE ของท่านยังไม่ได้เข้าร่วมกลุ่ม LINE ทางการของระบบ หรือ LINE Bot ยังไม่ได้อยู่ในกลุ่ม',
+      };
+    }
+
+    // 2. Check if this LINE User ID is already linked to another system user
+    const existingOtherUser = await db.query.users.findFirst({
+      where: and(eq(users.line_user_id, lineUserId), ne(users.id, session.id)),
+    });
+
+    if (existingOtherUser) {
+      return {
+        success: false,
+        error: `บัญชี LINE นี้ถูกผูกกับผู้ใช้งานท่านอื่นในระบบแล้ว (${existingOtherUser.name})`,
+      };
+    }
+
+    const finalDisplayName = verification.displayName || validated.displayName || 'LINE User';
+    const finalPictureUrl = verification.pictureUrl || validated.pictureUrl || null;
+
+    // 3. Save LINE user details into database
+    await db
+      .update(users)
+      .set({
+        line_user_id: lineUserId,
+        line_display_name: finalDisplayName,
+        line_picture_url: finalPictureUrl,
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, session.id));
+
+    // 4. Record Activity Log
+    await db.insert(activity_logs).values({
+      user_id: session.id,
+      action: 'ผูกบัญชี LINE สำเร็จ',
+      details: `ผูกบัญชี LINE ID: ${lineUserId} (${finalDisplayName}) พร้อมตรวจสอบสมาชิกกลุ่ม LINE สำเร็จ`,
+    });
+
+    revalidatePath('/', 'layout');
+    revalidatePath('/borrow');
+    revalidatePath('/admin/users');
+
+    return {
+      success: true,
+      message: `ผูกบัญชี LINE (${finalDisplayName}) กับระบบเรียบร้อยแล้ว`,
+      data: {
+        lineUserId,
+        displayName: finalDisplayName,
+      },
+    };
+  } catch (err: unknown) {
+    console.error('Error linking LINE account:', err);
+    if (err instanceof z.ZodError) {
+      return { success: false, error: err.issues[0].message };
+    }
+    return {
+      success: false,
+      error: 'เกิดข้อผิดพลาดของระบบในการผูกบัญชี LINE',
+    };
+  }
+}
+
+/**
+ * Unlinks the LINE account from the current logged-in user.
+ */
+export async function unlinkLineAccount(): Promise<ActionResponse> {
+  try {
+    const session = await getCurrentUserSession();
+    if (!session) {
+      return {
+        success: false,
+        error: 'กรุณาเข้าสู่ระบบก่อนทำรายการ',
+      };
+    }
+
+    const currentUser = await db.query.users.findFirst({
+      where: eq(users.id, session.id),
+    });
+
+    if (!currentUser?.line_user_id) {
+      return {
+        success: false,
+        error: 'บัญชีของท่านยังไม่ได้ผูกกับ LINE',
+      };
+    }
+
+    const prevLineName = currentUser.line_display_name || currentUser.line_user_id;
+
+    // Remove LINE linkage
+    await db
+      .update(users)
+      .set({
+        line_user_id: null,
+        line_display_name: null,
+        line_picture_url: null,
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, session.id));
+
+    // Record Activity Log
+    await db.insert(activity_logs).values({
+      user_id: session.id,
+      action: 'ยกเลิกการผูกบัญชี LINE',
+      details: `ยกเลิกการผูกบัญชี LINE (${prevLineName})`,
+    });
+
+    revalidatePath('/', 'layout');
+    revalidatePath('/borrow');
+    revalidatePath('/admin/users');
+
+    return {
+      success: true,
+      message: 'ยกเลิกการผูกบัญชี LINE เรียบร้อยแล้ว',
+    };
+  } catch (err) {
+    console.error('Error unlinking LINE account:', err);
+    return {
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการยกเลิกการผูกบัญชี LINE',
+    };
+  }
+}
+
+/**
+ * Retrieves the current LINE linking status and designated group information.
+ */
+export async function getLineLinkInfo(): Promise<{
+  isLinked: boolean;
+  lineUserId: string | null;
+  lineDisplayName: string | null;
+  linePictureUrl: string | null;
+  groupSummary: {
+    groupId: string;
+    groupName?: string;
+    pictureUrl?: string;
+  } | null;
+  liffIdConfigured: boolean;
+}> {
+  try {
+    const session = await getCurrentUserSession();
+    if (!session) {
+      return {
+        isLinked: false,
+        lineUserId: null,
+        lineDisplayName: null,
+        linePictureUrl: null,
+        groupSummary: null,
+        liffIdConfigured: Boolean(process.env.NEXT_PUBLIC_LINE_LIFF_ID),
+      };
+    }
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, session.id),
+    });
+
+    const groupSummary = await getLineGroupSummary();
+
+    return {
+      isLinked: Boolean(user?.line_user_id),
+      lineUserId: user?.line_user_id || null,
+      lineDisplayName: user?.line_display_name || null,
+      linePictureUrl: user?.line_picture_url || null,
+      groupSummary,
+      liffIdConfigured: Boolean(process.env.NEXT_PUBLIC_LINE_LIFF_ID),
+    };
+  } catch (err) {
+    console.error('Error getting LINE link info:', err);
+    return {
+      isLinked: false,
+      lineUserId: null,
+      lineDisplayName: null,
+      linePictureUrl: null,
+      groupSummary: null,
+      liffIdConfigured: Boolean(process.env.NEXT_PUBLIC_LINE_LIFF_ID),
+    };
+  }
+}

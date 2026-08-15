@@ -107,6 +107,9 @@ export async function getCurrentUserSession() {
       name: activeSession.user.name,
       department: activeSession.user.department,
       role: activeSession.user.role,
+      lineUserId: activeSession.user.line_user_id || null,
+      lineDisplayName: activeSession.user.line_display_name || null,
+      linePictureUrl: activeSession.user.line_picture_url || null,
       sessionId: activeSession.id,
     };
   } catch (err) {
