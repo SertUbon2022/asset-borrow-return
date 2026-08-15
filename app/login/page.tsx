@@ -321,6 +321,8 @@ function LoginForm() {
                     alt="LINE Profile"
                     width={40}
                     height={40}
+                    unoptimized
+                    referrerPolicy="no-referrer"
                     className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shrink-0 shadow-xs"
                   />
                 ) : (

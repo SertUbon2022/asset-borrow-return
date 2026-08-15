@@ -84,10 +84,15 @@ export default function LineAccountModal({
     message: string;
   }>({ type: null, message: "" });
 
+  const [imageError, setImageError] = useState(false);
+  const [liffImageError, setLiffImageError] = useState(false);
+
   // Load server-side link status & group info when dialog opens
   useEffect(() => {
     if (!isOpen) return;
 
+    setImageError(false);
+    setLiffImageError(false);
     getLineLinkInfo().then((info) => {
       setDbLineInfo(info);
     });
@@ -298,12 +303,15 @@ export default function LineAccountModal({
         {dbLineInfo.isLinked ? (
           <div className="space-y-4 py-2">
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center gap-3.5">
-              {dbLineInfo.linePictureUrl ? (
+              {dbLineInfo.linePictureUrl && !imageError ? (
                 <Image
                   src={dbLineInfo.linePictureUrl}
-                  alt="LINE Avatar"
+                  alt={dbLineInfo.lineDisplayName || "LINE Avatar"}
                   width={48}
                   height={48}
+                  unoptimized
+                  referrerPolicy="no-referrer"
+                  onError={() => setImageError(true)}
                   className="w-12 h-12 rounded-full object-cover border-2 border-emerald-400 shadow-xs"
                 />
               ) : (
@@ -369,12 +377,15 @@ export default function LineAccountModal({
             {liffProfile ? (
               <div className="space-y-3">
                 <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-3.5">
-                  {liffProfile.pictureUrl ? (
+                  {liffProfile.pictureUrl && !liffImageError ? (
                     <Image
                       src={liffProfile.pictureUrl}
-                      alt="LINE Profile"
+                      alt={liffProfile.displayName || "LINE Profile"}
                       width={48}
                       height={48}
+                      unoptimized
+                      referrerPolicy="no-referrer"
+                      onError={() => setLiffImageError(true)}
                       className="w-12 h-12 rounded-full object-cover border-2 border-[#06C755] shadow-xs"
                     />
                   ) : (
