@@ -5,7 +5,8 @@ import { db } from '@/db';
 import { users, activity_logs } from '@/db/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { getCurrentUserSession } from './auth';
-import { verifyUserInLineGroup, getLineGroupSummary } from '@/lib/line';
+import { verifyUserInLineGroup, getLineGroupSummary, verifyLineIdToken } from '@/lib/line';
+import { checkRateLimit, recordFailedAttempt, resetRateLimit, getClientIp } from '@/lib/rate-limit';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -13,6 +14,7 @@ const linkLineSchema = z.object({
   lineUserId: z.string().min(5, 'LINE User ID ไม่ถูกต้อง'),
   displayName: z.string().optional(),
   pictureUrl: z.string().optional(),
+  idToken: z.string().optional(),
 });
 
 export type ActionResponse<T = undefined> = {
@@ -38,7 +40,19 @@ export async function linkLineAccount(
     }
 
     const validated = linkLineSchema.parse(data);
-    const lineUserId = validated.lineUserId.trim();
+    let lineUserId = validated.lineUserId.trim();
+
+    // 0. Verify ID Token if provided for cryptographic authenticity
+    if (validated.idToken && validated.idToken.trim()) {
+      const tokenVerification = await verifyLineIdToken(validated.idToken);
+      if (!tokenVerification.isValid || !tokenVerification.userId) {
+        return {
+          success: false,
+          error: tokenVerification.error || 'LINE ID Token ไม่ถูกต้องหรือหมดอายุ',
+        };
+      }
+      lineUserId = tokenVerification.userId;
+    }
 
     // 1. Verify that the user is an active member in the designated LINE Group
     const verification = await verifyUserInLineGroup(lineUserId);
@@ -237,16 +251,34 @@ export type LineAuthResult =
 export async function verifyAndHandleLineAction(
   lineUserId: string,
   displayName?: string,
-  pictureUrl?: string
+  pictureUrl?: string,
+  idToken?: string
 ): Promise<LineAuthResult> {
   try {
-    const trimmedId = lineUserId.trim();
-    if (!trimmedId) {
+    let targetUserId = lineUserId.trim();
+    let targetDisplayName = displayName;
+    let targetPictureUrl = pictureUrl;
+
+    // 0. If idToken is provided, verify with LINE OAuth API for cryptographic authenticity
+    if (idToken && idToken.trim()) {
+      const tokenVerification = await verifyLineIdToken(idToken);
+      if (!tokenVerification.isValid || !tokenVerification.userId) {
+        return {
+          status: 'not_in_group',
+          error: tokenVerification.error || 'การยืนยันตัวตน LINE ID Token ไม่ถูกต้องหรือหมดอายุ',
+        };
+      }
+      targetUserId = tokenVerification.userId;
+      if (tokenVerification.displayName) targetDisplayName = tokenVerification.displayName;
+      if (tokenVerification.pictureUrl) targetPictureUrl = tokenVerification.pictureUrl;
+    }
+
+    if (!targetUserId) {
       return { status: 'not_in_group', error: 'ไม่พบ LINE User ID' };
     }
 
     // 1. Check if user is in the designated LINE Group
-    const verification = await verifyUserInLineGroup(trimmedId);
+    const verification = await verifyUserInLineGroup(targetUserId);
     if (!verification.isMember) {
       return {
         status: 'not_in_group',
@@ -256,12 +288,12 @@ export async function verifyAndHandleLineAction(
       };
     }
 
-    const finalDisplayName = verification.displayName || displayName || 'LINE User';
-    const finalPictureUrl = verification.pictureUrl || pictureUrl;
+    const finalDisplayName = verification.displayName || targetDisplayName || 'LINE User';
+    const finalPictureUrl = verification.pictureUrl || targetPictureUrl;
 
     // 2. Check if user is already linked in Database
     const existingUser = await db.query.users.findFirst({
-      where: eq(users.line_user_id, trimmedId),
+      where: eq(users.line_user_id, targetUserId),
     });
 
     if (existingUser) {
@@ -291,7 +323,7 @@ export async function verifyAndHandleLineAction(
     return {
       status: 'needs_link',
       lineProfile: {
-        lineUserId: trimmedId,
+        lineUserId: targetUserId,
         displayName: finalDisplayName,
         pictureUrl: finalPictureUrl,
       },
@@ -309,6 +341,7 @@ const linkAndLoginSchema = z.object({
   lineUserId: z.string().min(5, 'LINE User ID ไม่ถูกต้อง'),
   displayName: z.string().optional(),
   pictureUrl: z.string().optional(),
+  idToken: z.string().optional(),
   email: z.string().email('กรุณาระบุอีเมลให้ถูกต้อง'),
   password: z.string().min(1, 'กรุณาระบุรหัสผ่าน'),
 });
@@ -319,9 +352,36 @@ const linkAndLoginSchema = z.object({
 export async function linkLineAndLoginAction(
   data: z.infer<typeof linkAndLoginSchema>
 ): Promise<ActionResponse<{ role: string; name: string }>> {
+  const ip = await getClientIp();
+  const normalizedEmail = data?.email?.toLowerCase().trim() || 'unknown';
+  const rateLimitKey = `link_login:${ip}:${normalizedEmail}`;
+
+  // Rate limit check: 5 attempts per 5 minutes
+  const rateLimit = checkRateLimit(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
+  if (!rateLimit.isAllowed) {
+    const minutes = Math.ceil(rateLimit.retryAfterSeconds / 60);
+    return {
+      success: false,
+      error: `คุณพยายามเข้าสู่ระบบไม่ถูกต้องเกินกำหนด กรุณารอประมาณ ${minutes} นาที แล้วลองใหม่อีกครั้ง`,
+    };
+  }
+
   try {
     const validated = linkAndLoginSchema.parse(data);
-    const lineUserId = validated.lineUserId.trim();
+    let lineUserId = validated.lineUserId.trim();
+
+    // 0. Verify ID Token if provided
+    if (validated.idToken && validated.idToken.trim()) {
+      const tokenVerification = await verifyLineIdToken(validated.idToken);
+      if (!tokenVerification.isValid || !tokenVerification.userId) {
+        recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
+        return {
+          success: false,
+          error: tokenVerification.error || 'LINE ID Token ไม่ถูกต้องหรือหมดอายุ',
+        };
+      }
+      lineUserId = tokenVerification.userId;
+    }
 
     // 1. Verify user credentials
     const user = await db.query.users.findFirst({
@@ -329,12 +389,14 @@ export async function linkLineAndLoginAction(
     });
 
     if (!user) {
+      recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
       return { success: false, error: 'ไม่พบบัญชีผู้ใช้งานที่ระบุในระบบ' };
     }
 
     // 2. Verify that the user is in the LINE Group
     const verification = await verifyUserInLineGroup(lineUserId);
     if (!verification.isMember) {
+      recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
       return {
         success: false,
         error:
@@ -349,11 +411,15 @@ export async function linkLineAndLoginAction(
     });
 
     if (existingOther) {
+      recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
       return {
         success: false,
         error: `LINE ID นี้ถูกผูกกับผู้ใช้ท่านอื่นในระบบแล้ว (${existingOther.name})`,
       };
     }
+
+    // Reset rate limit on success
+    resetRateLimit(rateLimitKey);
 
     const finalDisplayName = verification.displayName || validated.displayName || 'LINE User';
     const finalPictureUrl = verification.pictureUrl || validated.pictureUrl || null;
@@ -394,6 +460,7 @@ export async function linkLineAndLoginAction(
     };
   } catch (err: unknown) {
     console.error('Error in linkLineAndLoginAction:', err);
+    recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
     if (err instanceof z.ZodError) {
       return { success: false, error: err.issues[0].message };
     }
@@ -403,4 +470,5 @@ export async function linkLineAndLoginAction(
     };
   }
 }
+
 

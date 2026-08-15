@@ -761,4 +761,66 @@ export function buildActionResultFlexMessage(data: ActionResultData) {
   };
 }
 
+export interface LineIdTokenVerificationResult {
+  isValid: boolean;
+  userId?: string;
+  displayName?: string;
+  pictureUrl?: string;
+  error?: string;
+}
+
+/**
+ * Verifies LINE ID Token (JWT) directly with LINE OAuth 2.1 verify endpoint
+ * POST https://api.line.me/oauth2/v2.1/verify
+ */
+export async function verifyLineIdToken(idToken: string): Promise<LineIdTokenVerificationResult> {
+  const trimmedToken = idToken?.trim();
+  if (!trimmedToken) {
+    return { isValid: false, error: 'ไม่พบ LINE ID Token' };
+  }
+
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim();
+  const channelId = process.env.LINE_CHANNEL_ID?.trim() || (liffId ? liffId.split('-')[0] : undefined);
+
+  try {
+    const params = new URLSearchParams();
+    params.append('id_token', trimmedToken);
+    if (channelId) {
+      params.append('client_id', channelId);
+    }
+
+    const response = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+      cache: 'no-store',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      console.error('[LINE ID Token Verification Failed]:', data);
+      return {
+        isValid: false,
+        error: data.error_description || 'LINE ID Token ไม่ถูกต้องหรือหมดอายุ',
+      };
+    }
+
+    return {
+      isValid: true,
+      userId: data.sub,
+      displayName: data.name,
+      pictureUrl: data.picture,
+    };
+  } catch (error) {
+    console.error('[LINE ID Token Verification Exception]:', error);
+    return {
+      isValid: false,
+      error: 'เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อตรวจสอบ LINE ID Token',
+    };
+  }
+}
+
 

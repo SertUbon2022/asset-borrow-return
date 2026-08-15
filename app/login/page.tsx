@@ -28,6 +28,7 @@ interface LineDetectedProfile {
   lineUserId: string;
   displayName?: string;
   pictureUrl?: string;
+  idToken?: string;
 }
 
 function LoginForm() {
@@ -68,13 +69,15 @@ function LoginForm() {
 
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
+          const idToken = liff.getIDToken() || undefined;
           if (!isMounted) return;
 
-          // Verify with server action
+          // Verify with server action including cryptographic ID Token
           const result = await verifyAndHandleLineAction(
             profile.userId,
             profile.displayName,
-            profile.pictureUrl
+            profile.pictureUrl,
+            idToken
           );
 
           if (result.status === "authenticated") {
@@ -97,6 +100,7 @@ function LoginForm() {
               lineUserId: profile.userId,
               displayName: profile.displayName,
               pictureUrl: profile.pictureUrl,
+              idToken,
             });
             setLineStatusNotice(
               `ตรวจพบบัญชี LINE ของคุณในกลุ่ม กปภ. กรุณาเข้าสู่ระบบด้วยบัญชี IT Admin เพื่อผูกบัญชีอัตโนมัติ`
@@ -134,6 +138,7 @@ function LoginForm() {
         lineUserId: lineProfile.lineUserId,
         displayName: lineProfile.displayName,
         pictureUrl: lineProfile.pictureUrl,
+        idToken: lineProfile.idToken,
         email,
         password,
       });
@@ -178,6 +183,7 @@ function LoginForm() {
         lineUserId: lineProfile.lineUserId,
         displayName: lineProfile.displayName,
         pictureUrl: lineProfile.pictureUrl,
+        idToken: lineProfile.idToken,
         email: demoEmail,
         password: "123456",
       });

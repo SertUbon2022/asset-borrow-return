@@ -9,6 +9,8 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import crypto from 'crypto';
 
+import { checkRateLimit, recordFailedAttempt, resetRateLimit, getClientIp } from '@/lib/rate-limit';
+
 const loginSchema = z.object({
   email: z.string().email('กรุณาระบุอีเมลให้ถูกต้อง'),
   password: z.string().min(1, 'กรุณาระบุรหัสผ่าน'),
@@ -41,6 +43,20 @@ export async function createSessionForUser(userId: number) {
 }
 
 export async function loginAction(formData: { email: string; password: string }) {
+  const ip = await getClientIp();
+  const normalizedEmail = formData?.email?.toLowerCase().trim() || 'unknown';
+  const rateLimitKey = `login:${ip}:${normalizedEmail}`;
+
+  // Check rate limit before proceeding (5 attempts per 5 minutes)
+  const rateLimit = checkRateLimit(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
+  if (!rateLimit.isAllowed) {
+    const minutes = Math.ceil(rateLimit.retryAfterSeconds / 60);
+    return {
+      success: false,
+      message: `คุณพยายามเข้าสู่ระบบไม่ถูกต้องเกินกำหนด กรุณารอประมาณ ${minutes} นาที แล้วลองใหม่อีกครั้ง`,
+    };
+  }
+
   try {
     const validated = loginSchema.parse(formData);
 
@@ -50,14 +66,19 @@ export async function loginAction(formData: { email: string; password: string })
     });
 
     if (!user) {
+      recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
       return { success: false, message: 'ไม่พบบัญชีผู้ใช้งานที่ระบุในระบบ' };
     }
+
+    // Reset rate limit on successful authentication
+    resetRateLimit(rateLimitKey);
 
     await createSessionForUser(user.id);
 
     return { success: true, message: 'เข้าสู่ระบบสำเร็จ', role: user.role };
   } catch (err: unknown) {
     console.error('Login action error:', err);
+    recordFailedAttempt(rateLimitKey, 5, 5 * 60 * 1000, 5 * 60 * 1000);
     return {
       success: false,
       message: err instanceof z.ZodError ? err.issues[0].message : 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ',

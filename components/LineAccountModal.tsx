@@ -45,6 +45,7 @@ interface LiffProfile {
   displayName: string;
   pictureUrl?: string;
   statusMessage?: string;
+  idToken?: string;
 }
 
 export default function LineAccountModal({
@@ -113,12 +114,14 @@ export default function LineAccountModal({
 
         if (liff.isLoggedIn()) {
           const profile = await liff.getProfile();
+          const idToken = liff.getIDToken() || undefined;
           if (isMounted) {
             setLiffProfile({
               userId: profile.userId,
               displayName: profile.displayName || "LINE User",
               pictureUrl: profile.pictureUrl,
               statusMessage: profile.statusMessage,
+              idToken,
             });
           }
         }
@@ -191,6 +194,7 @@ export default function LineAccountModal({
         lineUserId: liffProfile.userId,
         displayName: liffProfile.displayName,
         pictureUrl: liffProfile.pictureUrl,
+        idToken: liffProfile.idToken,
       });
 
       if (res.success) {
