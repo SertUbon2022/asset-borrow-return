@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { getCurrentUserSession } from "@/server/actions/auth";
 import { getBorrowRequests } from "@/server/queries/borrow";
 import StatusBadge from "@/components/StatusBadge";
@@ -33,6 +34,7 @@ export default async function AdminRequestsPage({ searchParams }: AdminRequestsP
     { label: "ทั้งหมด", value: "all" },
     { label: "รออนุมัติ", value: "pending" },
     { label: "อยู่ระหว่างยืมใช้งาน", value: "borrowed" },
+    { label: "เกินกำหนดคืน", value: "overdue" },
     { label: "คืนเรียบร้อย", value: "returned" },
     { label: "ปฏิเสธคำขอ", value: "rejected" },
   ];
@@ -59,7 +61,7 @@ export default async function AdminRequestsPage({ searchParams }: AdminRequestsP
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         {filterTabs.map((tab) => (
-          <a
+          <Link
             key={tab.value}
             href={`/admin/requests?status=${tab.value}`}
             className={`px-4 py-2 rounded-xl border font-bold whitespace-nowrap transition-all ${
@@ -69,7 +71,7 @@ export default async function AdminRequestsPage({ searchParams }: AdminRequestsP
             }`}
           >
             {tab.label}
-          </a>
+          </Link>
         ))}
       </div>
 
@@ -83,6 +85,9 @@ export default async function AdminRequestsPage({ searchParams }: AdminRequestsP
         <div className="space-y-4">
           {requests.map((req) => {
             const isHighlighted = highlightId === req.id;
+            const isOverdue = req.status === "borrowed" && new Date(req.expected_return_date) < new Date();
+            const displayStatus = isOverdue ? "overdue" : req.status;
+
             return (
               <div
                 key={req.id}
@@ -90,6 +95,8 @@ export default async function AdminRequestsPage({ searchParams }: AdminRequestsP
                 className={`bg-white rounded-3xl p-6 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6 ${
                   isHighlighted
                     ? "border-2 border-[#0072BC] ring-4 ring-blue-100 shadow-2xl shadow-blue-200/50 bg-blue-50/10"
+                    : isOverdue
+                    ? "border-2 border-red-300 ring-2 ring-red-100 shadow-xl shadow-red-200/20"
                     : "border border-slate-200/70 shadow-xl shadow-slate-200/30 hover:border-[#0072BC]/40"
                 }`}
               >
@@ -98,7 +105,7 @@ export default async function AdminRequestsPage({ searchParams }: AdminRequestsP
                     <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-lg bg-blue-50 text-[#0072BC] border border-blue-100">
                       คำขอ #{req.id}
                     </span>
-                    <StatusBadge type="request" status={req.status} size="md" />
+                    <StatusBadge type="request" status={displayStatus} size="md" />
                     {isHighlighted && (
                       <span className="px-2.5 py-0.5 rounded-lg bg-[#0072BC] text-white text-xs font-bold flex items-center gap-1 shadow-xs animate-pulse">
                         🔔 คำขอจาก LINE Notification

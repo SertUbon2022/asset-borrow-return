@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { getCurrentUserSession } from "@/server/actions/auth";
 import { getBorrowRequests } from "@/server/queries/borrow";
 import StatusBadge from "@/components/StatusBadge";
@@ -31,6 +32,7 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
     { label: "รออนุมัติ", value: "pending" },
     { label: "อนุมัติแล้ว", value: "approved" },
     { label: "รับอุปกรณ์แล้ว", value: "borrowed" },
+    { label: "เกินกำหนดคืน", value: "overdue" },
     { label: "คืนเรียบร้อย", value: "returned" },
   ];
 
@@ -59,7 +61,7 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
         {filterTabs.map((tab) => (
-          <a
+          <Link
             key={tab.value}
             href={`/borrow?status=${tab.value}`}
             className={`px-4 py-2 rounded-xl border font-bold whitespace-nowrap transition-all ${
@@ -69,7 +71,7 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
             }`}
           >
             {tab.label}
-          </a>
+          </Link>
         ))}
       </div>
 
@@ -82,22 +84,30 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.map((req) => (
-            <div
-              key={req.id}
-              className="bg-white rounded-3xl border border-slate-200/70 p-6 shadow-xl shadow-slate-200/30 hover:border-[#0072BC]/40 transition-all flex flex-col md:flex-row md:items-center justify-between gap-5"
-            >
-              <div className="space-y-3 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
-                    คำขอ #{req.id}
-                  </span>
-                  <StatusBadge type="request" status={req.status} size="md" />
-                  <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-50 text-[#0072BC] text-xs font-bold border border-blue-100">
-                    <Clock className="w-3 h-3" />
-                    {req.duration_days || 7} วัน
-                  </span>
-                </div>
+          {requests.map((req) => {
+            const isOverdue = req.status === "borrowed" && new Date(req.expected_return_date) < new Date();
+            const displayStatus = isOverdue ? "overdue" : req.status;
+
+            return (
+              <div
+                key={req.id}
+                className={`bg-white rounded-3xl p-6 shadow-xl transition-all flex flex-col md:flex-row md:items-center justify-between gap-5 ${
+                  isOverdue
+                    ? "border-2 border-red-300 ring-2 ring-red-100 shadow-red-200/30"
+                    : "border border-slate-200/70 shadow-slate-200/30 hover:border-[#0072BC]/40"
+                }`}
+              >
+                <div className="space-y-3 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                      คำขอ #{req.id}
+                    </span>
+                    <StatusBadge type="request" status={displayStatus} size="md" />
+                    <span className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-50 text-[#0072BC] text-xs font-bold border border-blue-100">
+                      <Clock className="w-3 h-3" />
+                      {req.duration_days || 7} วัน
+                    </span>
+                  </div>
 
                 <div className="flex items-center gap-2">
                   <Laptop className="w-4 h-4 text-[#0072BC]" />
@@ -148,7 +158,8 @@ export default async function BorrowPage({ searchParams }: BorrowPageProps) {
                 )}
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       )}
     </div>

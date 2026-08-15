@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { getAssets } from "@/server/queries/assets";
 import { getCategories } from "@/server/queries/borrow";
@@ -39,7 +40,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         </div>
 
         <div className="px-3.5 py-1.5 rounded-xl bg-blue-50 text-[#0072BC] text-xs font-bold border border-blue-100 shrink-0">
-          พบคืนทั้งหมด {assetsList.length} รายการ
+          พบทั้งหมด {assetsList.length} รายการ
         </div>
       </div>
 
@@ -70,7 +71,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
           <span className="text-slate-400 font-semibold flex items-center gap-1 shrink-0">
             <Filter className="w-3.5 h-3.5" /> หมวดหมู่:
           </span>
-          <a
+          <Link
             href="/assets"
             className={`px-3.5 py-1.5 rounded-xl border font-bold whitespace-nowrap transition-all ${
               !categoryId
@@ -79,9 +80,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
             }`}
           >
             ทั้งหมด
-          </a>
+          </Link>
           {categoriesList.map((cat) => (
-            <a
+            <Link
               key={cat.id}
               href={`/assets?category=${cat.id}`}
               className={`px-3.5 py-1.5 rounded-xl border font-bold whitespace-nowrap transition-all ${
@@ -91,7 +92,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
               }`}
             >
               {cat.name}
-            </a>
+            </Link>
           ))}
         </div>
       </div>

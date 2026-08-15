@@ -54,8 +54,6 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
     ? `https://liff.line.me/${liffId.trim()}`
     : appUrl;
 
-  const approveUrl = `${baseUrl}/admin/requests?highlight=${data.requestId}&action=approve`;
-  const rejectUrl = `${baseUrl}/admin/requests?highlight=${data.requestId}&action=reject`;
   const viewUrl = `${baseUrl}/admin/requests?highlight=${data.requestId}`;
 
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800';

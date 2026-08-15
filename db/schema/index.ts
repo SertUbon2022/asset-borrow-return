@@ -7,6 +7,7 @@ import {
   timestamp,
   pgEnum,
   boolean,
+  index,
 } from 'drizzle-orm/pg-core';
 import { relations, InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
@@ -54,83 +55,120 @@ export const categories = pgTable('categories', {
 });
 
 // 3. Assets Table
-export const assets = pgTable('assets', {
-  id: serial('id').primaryKey(),
-  asset_tag: varchar('asset_tag', { length: 100 }).notNull().unique(),
-  name: varchar('name', { length: 255 }).notNull(),
-  category_id: integer('category_id')
-    .notNull()
-    .references(() => categories.id, { onDelete: 'restrict' }),
-  model: varchar('model', { length: 255 }),
-  serial_number: varchar('serial_number', { length: 255 }),
-  status: assetStatusEnum('status').notNull().default('available'),
-  location: varchar('location', { length: 255 }),
-  borrow_duration_days: integer('borrow_duration_days').notNull().default(7),
-  description: text('description'),
-  image_url: text('image_url'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export const assets = pgTable(
+  'assets',
+  {
+    id: serial('id').primaryKey(),
+    asset_tag: varchar('asset_tag', { length: 100 }).notNull().unique(),
+    name: varchar('name', { length: 255 }).notNull(),
+    category_id: integer('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'restrict' }),
+    model: varchar('model', { length: 255 }),
+    serial_number: varchar('serial_number', { length: 255 }),
+    status: assetStatusEnum('status').notNull().default('available'),
+    location: varchar('location', { length: 255 }),
+    borrow_duration_days: integer('borrow_duration_days').notNull().default(7),
+    description: text('description'),
+    image_url: text('image_url'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    updated_at: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_assets_status').on(table.status),
+    index('idx_assets_category_id').on(table.category_id),
+    index('idx_assets_created_at').on(table.created_at),
+  ]
+);
 
 // 4. Borrow Requests Table
-export const borrow_requests = pgTable('borrow_requests', {
-  id: serial('id').primaryKey(),
-  user_id: integer('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  asset_id: integer('asset_id')
-    .notNull()
-    .references(() => assets.id, { onDelete: 'cascade' }),
-  request_date: timestamp('request_date').notNull().defaultNow(),
-  expected_return_date: timestamp('expected_return_date').notNull(),
-  actual_return_date: timestamp('actual_return_date'),
-  approved_by: integer('approved_by').references(() => users.id, { onDelete: 'set null' }),
-  approved_at: timestamp('approved_at'),
-  duration_days: integer('duration_days').notNull().default(7),
-  status: borrowStatusEnum('status').notNull().default('pending'),
-  purpose: text('purpose').notNull(),
-  admin_note: text('admin_note'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export const borrow_requests = pgTable(
+  'borrow_requests',
+  {
+    id: serial('id').primaryKey(),
+    user_id: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    asset_id: integer('asset_id')
+      .notNull()
+      .references(() => assets.id, { onDelete: 'cascade' }),
+    request_date: timestamp('request_date').notNull().defaultNow(),
+    expected_return_date: timestamp('expected_return_date').notNull(),
+    actual_return_date: timestamp('actual_return_date'),
+    approved_by: integer('approved_by').references(() => users.id, { onDelete: 'set null' }),
+    approved_at: timestamp('approved_at'),
+    duration_days: integer('duration_days').notNull().default(7),
+    status: borrowStatusEnum('status').notNull().default('pending'),
+    purpose: text('purpose').notNull(),
+    admin_note: text('admin_note'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    updated_at: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_borrow_requests_status').on(table.status),
+    index('idx_borrow_requests_user_id').on(table.user_id),
+    index('idx_borrow_requests_asset_id').on(table.asset_id),
+    index('idx_borrow_requests_expected_return').on(table.expected_return_date),
+  ]
+);
 
 // 5. Activity Logs Table
-export const activity_logs = pgTable('activity_logs', {
-  id: serial('id').primaryKey(),
-  request_id: integer('request_id').references(() => borrow_requests.id, { onDelete: 'cascade' }),
-  user_id: integer('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  action: varchar('action', { length: 255 }).notNull(),
-  details: text('details'),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-});
+export const activity_logs = pgTable(
+  'activity_logs',
+  {
+    id: serial('id').primaryKey(),
+    request_id: integer('request_id').references(() => borrow_requests.id, { onDelete: 'cascade' }),
+    user_id: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    action: varchar('action', { length: 255 }).notNull(),
+    details: text('details'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_activity_logs_user_id').on(table.user_id),
+    index('idx_activity_logs_created_at').on(table.created_at),
+  ]
+);
 
 // 6. Sessions Table for Database Authentication
-export const sessions = pgTable('sessions', {
-  id: varchar('id', { length: 255 }).primaryKey(),
-  user_id: integer('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  expires_at: timestamp('expires_at').notNull(),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-});
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: varchar('id', { length: 255 }).primaryKey(),
+    user_id: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expires_at: timestamp('expires_at').notNull(),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_sessions_expires_at').on(table.expires_at),
+    index('idx_sessions_user_id').on(table.user_id),
+  ]
+);
 
 // 7. Announcements Table
-export const announcements = pgTable('announcements', {
-  id: serial('id').primaryKey(),
-  title: varchar('title', { length: 255 }).notNull(),
-  content: text('content').notNull(),
-  category: announcementCategoryEnum('category').notNull().default('important'),
-  is_pinned: boolean('is_pinned').notNull().default(false),
-  image_urls: text('image_urls'),
-  published_at: timestamp('published_at').notNull().defaultNow(),
-  created_by: integer('created_by')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  created_at: timestamp('created_at').notNull().defaultNow(),
-  updated_at: timestamp('updated_at').notNull().defaultNow(),
-});
+export const announcements = pgTable(
+  'announcements',
+  {
+    id: serial('id').primaryKey(),
+    title: varchar('title', { length: 255 }).notNull(),
+    content: text('content').notNull(),
+    category: announcementCategoryEnum('category').notNull().default('important'),
+    is_pinned: boolean('is_pinned').notNull().default(false),
+    image_urls: text('image_urls'),
+    published_at: timestamp('published_at').notNull().defaultNow(),
+    created_by: integer('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+    updated_at: timestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_announcements_pinned_published').on(table.is_pinned, table.published_at),
+  ]
+);
 
 // RELATIONS
 export const usersRelations = relations(users, ({ many }) => ({

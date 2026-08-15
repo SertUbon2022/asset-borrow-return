@@ -54,7 +54,7 @@ export default function LineAccountModal({
   onSuccess,
 }: LineAccountModalProps) {
   const [isPending, startTransition] = useTransition();
-  const [liffLoaded, setLiffLoaded] = useState(false);
+  const [liffLoaded, setLiffLoaded] = useState(() => !process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim());
   const [liffError, setLiffError] = useState<string | null>(null);
   const [liffProfile, setLiffProfile] = useState<LiffProfile | null>(null);
 
@@ -87,8 +87,6 @@ export default function LineAccountModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    setFeedback({ type: null, message: "" });
-
     getLineLinkInfo().then((info) => {
       setDbLineInfo(info);
     });
@@ -98,13 +96,12 @@ export default function LineAccountModal({
   useEffect(() => {
     if (!isOpen) return;
 
-    const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-    if (!liffId || liffId.trim() === "") {
-      setLiffLoaded(true);
+    const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim();
+    if (!liffId) {
       return;
     }
 
-    const targetLiffId = liffId.trim();
+    const targetLiffId = liffId;
     let isMounted = true;
 
     async function initLiff() {

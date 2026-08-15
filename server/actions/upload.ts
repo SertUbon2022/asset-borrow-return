@@ -5,6 +5,55 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getCurrentUserSession } from './auth';
 
+/**
+ * Reusable helper to process and persist uploaded image file or base64 data
+ */
+async function processAndSaveImage(
+  formData: FormData,
+  folder: 'assets' | 'announcements',
+  prefix: string
+): Promise<{ success: boolean; url?: string; message?: string }> {
+  const file = formData.get('file') as File | null;
+  const base64Data = formData.get('base64') as string | null;
+
+  if (!file && !base64Data) {
+    return { success: false, message: 'ไม่พบไฟล์รูปภาพหรือข้อมูลภาพถ่าย' };
+  }
+
+  const uploadDir = path.join(process.cwd(), 'public', 'uploads', folder);
+  await fs.mkdir(uploadDir, { recursive: true });
+
+  let fileName = '';
+  let buffer: Buffer;
+
+  if (file) {
+    const ext = path.extname(file.name) || '.jpg';
+    const cleanExt = ext.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)/) ? ext : '.jpg';
+    fileName = `${prefix}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}${cleanExt}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    buffer = Buffer.from(arrayBuffer);
+  } else if (base64Data) {
+    fileName = `${prefix}-cam-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.jpg`;
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    if (matches && matches.length === 3) {
+      buffer = Buffer.from(matches[2], 'base64');
+    } else {
+      buffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+    }
+  } else {
+    return { success: false, message: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง' };
+  }
+
+  const filePath = path.join(uploadDir, fileName);
+  await fs.writeFile(filePath, buffer);
+
+  return {
+    success: true,
+    url: `/uploads/${folder}/${fileName}`,
+  };
+}
+
 export async function uploadAssetImageAction(formData: FormData) {
   try {
     const userSession = await getCurrentUserSession();
@@ -15,47 +64,15 @@ export async function uploadAssetImageAction(formData: FormData) {
       };
     }
 
-    const file = formData.get('file') as File | null;
-    const base64Data = formData.get('base64') as string | null;
-
-    if (!file && !base64Data) {
-      return { success: false, message: 'ไม่พบไฟล์รูปภาพหรือข้อมูลภาพถ่าย' };
+    const result = await processAndSaveImage(formData, 'assets', 'asset');
+    if (!result.success) {
+      return { success: false, message: result.message || 'เกิดข้อผิดพลาดในการบันทึกไฟล์รูปภาพ' };
     }
-
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'assets');
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    let fileName = '';
-    let buffer: Buffer;
-
-    if (file) {
-      const ext = path.extname(file.name) || '.jpg';
-      const cleanExt = ext.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)/) ? ext : '.jpg';
-      fileName = `asset-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}${cleanExt}`;
-
-      const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-    } else if (base64Data) {
-      fileName = `asset-cam-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.jpg`;
-      const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (matches && matches.length === 3) {
-        buffer = Buffer.from(matches[2], 'base64');
-      } else {
-        buffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-      }
-    } else {
-      return { success: false, message: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง' };
-    }
-
-    const filePath = path.join(uploadDir, fileName);
-    await fs.writeFile(filePath, buffer);
-
-    const publicUrl = `/uploads/assets/${fileName}`;
 
     return {
       success: true,
       message: 'อัปโหลดรูปภาพครุภัณฑ์เรียบร้อยแล้ว',
-      url: publicUrl,
+      url: result.url,
     };
   } catch (err: unknown) {
     console.error('Error uploading asset image:', err);
@@ -73,47 +90,15 @@ export async function uploadAnnouncementImageAction(formData: FormData) {
       };
     }
 
-    const file = formData.get('file') as File | null;
-    const base64Data = formData.get('base64') as string | null;
-
-    if (!file && !base64Data) {
-      return { success: false, message: 'ไม่พบไฟล์รูปภาพหรือข้อมูลภาพถ่าย' };
+    const result = await processAndSaveImage(formData, 'announcements', 'ann');
+    if (!result.success) {
+      return { success: false, message: result.message || 'เกิดข้อผิดพลาดในการบันทึกไฟล์รูปภาพข่าว' };
     }
-
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'announcements');
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    let fileName = '';
-    let buffer: Buffer;
-
-    if (file) {
-      const ext = path.extname(file.name) || '.jpg';
-      const cleanExt = ext.toLowerCase().match(/\.(jpg|jpeg|png|webp|gif)/) ? ext : '.jpg';
-      fileName = `ann-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}${cleanExt}`;
-
-      const arrayBuffer = await file.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-    } else if (base64Data) {
-      fileName = `ann-cam-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.jpg`;
-      const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (matches && matches.length === 3) {
-        buffer = Buffer.from(matches[2], 'base64');
-      } else {
-        buffer = Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-      }
-    } else {
-      return { success: false, message: 'รูปแบบไฟล์รูปภาพไม่ถูกต้อง' };
-    }
-
-    const filePath = path.join(uploadDir, fileName);
-    await fs.writeFile(filePath, buffer);
-
-    const publicUrl = `/uploads/announcements/${fileName}`;
 
     return {
       success: true,
       message: 'อัปโหลดรูปภาพข่าวประชาสัมพันธ์เรียบร้อยแล้ว',
-      url: publicUrl,
+      url: result.url,
     };
   } catch (err: unknown) {
     console.error('Error uploading announcement image:', err);

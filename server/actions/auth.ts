@@ -71,7 +71,7 @@ export async function logoutAction() {
     const sessionId = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
     if (sessionId) {
-      // Delete session from MySQL database
+      // Delete session from PostgreSQL database
       await db.delete(sessions).where(eq(sessions.id, sessionId));
     }
 
@@ -92,7 +92,7 @@ export async function getCurrentUserSession() {
       return null;
     }
 
-    // Query active, non-expired session from MySQL database
+    // Query active, non-expired session from PostgreSQL database
     const activeSession = await db.query.sessions.findFirst({
       where: and(eq(sessions.id, sessionId), gt(sessions.expires_at, new Date())),
       with: {

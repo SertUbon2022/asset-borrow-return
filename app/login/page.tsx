@@ -45,19 +45,18 @@ function LoginForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // LINE Auto-Login / Link States
-  const [liffChecking, setLiffChecking] = useState(true);
+  const [liffChecking, setLiffChecking] = useState(() => Boolean(process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim()));
   const [lineProfile, setLineProfile] = useState<LineDetectedProfile | null>(null);
   const [lineStatusNotice, setLineStatusNotice] = useState<string | null>(null);
 
   // Check LIFF when arriving on Login page
   useEffect(() => {
-    const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
-    if (!liffId || liffId.trim() === "") {
-      setLiffChecking(false);
+    const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID?.trim();
+    if (!liffId) {
       return;
     }
 
-    const targetLiffId = liffId.trim();
+    const targetLiffId = liffId;
     let isMounted = true;
 
     async function checkLiffAuth() {

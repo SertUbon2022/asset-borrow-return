@@ -1,7 +1,7 @@
 import 'server-only';
 import { db } from '@/db';
 import { assets, borrow_requests, users } from '@/db/schema';
-import { eq, sql, desc, asc, inArray } from 'drizzle-orm';
+import { eq, sql, desc, asc, inArray, and, or, ilike } from 'drizzle-orm';
 
 export async function getDashboardStats() {
   const [totalAssetsResult] = await db
@@ -117,7 +117,7 @@ export async function getTopDashboardStats() {
       .filter((item): item is NonNullable<typeof item> => item !== null);
   }
 
-  // 3. Top 5 Most Repaired Assets (from Maintenance Status & Activity Logs)
+  // 3. Top 5 Most Repaired Assets (from Maintenance Status)
   const maintenanceAssets = await db.query.assets.findMany({
     with: { category: true },
     orderBy: [desc(assets.id)],
@@ -125,7 +125,6 @@ export async function getTopDashboardStats() {
   });
 
   const topMaintenanceAssets = maintenanceAssets.map((asset) => {
-    // Count occurrences or fallback to 1 if in maintenance
     const isCurrentlyInMaintenance = asset.status === 'maintenance';
     return {
       id: asset.id,
@@ -133,7 +132,7 @@ export async function getTopDashboardStats() {
       assetTag: asset.asset_tag,
       categoryName: asset.category?.name || "ครุภัณฑ์ทั่วไป",
       status: asset.status,
-      repairCount: isCurrentlyInMaintenance ? Math.floor(Math.random() * 2) + 2 : 1,
+      repairCount: isCurrentlyInMaintenance ? 2 : 1,
     };
   }).slice(0, 5);
 
@@ -169,41 +168,26 @@ export async function getTopDashboardStats() {
 }
 
 export async function getAssets(query?: string, categoryId?: number) {
-  const allAssets = await db.query.assets.findMany({
-    with: {
-      category: true,
-      borrowRequests: {
-        with: {
-          user: true,
-        },
-        orderBy: [desc(borrow_requests.id)],
-      },
-    },
-    orderBy: [desc(assets.id)],
-  });
-
-  let filtered = allAssets;
+  const conditions = [];
 
   if (categoryId) {
-    filtered = filtered.filter((a) => a.category_id === categoryId);
+    conditions.push(eq(assets.category_id, categoryId));
   }
 
   if (query && query.trim() !== '') {
-    const q = query.toLowerCase();
-    filtered = filtered.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        a.asset_tag.toLowerCase().includes(q) ||
-        (a.model && a.model.toLowerCase().includes(q)) ||
-        (a.serial_number && a.serial_number.toLowerCase().includes(q))
+    const q = `%${query.trim()}%`;
+    conditions.push(
+      or(
+        ilike(assets.name, q),
+        ilike(assets.asset_tag, q),
+        ilike(assets.model, q),
+        ilike(assets.serial_number, q)
+      )
     );
   }
 
-  return filtered;
-}
-
-export async function getAdminAssetsList() {
   return await db.query.assets.findMany({
+    where: conditions.length > 0 ? and(...conditions) : undefined,
     with: {
       category: true,
       borrowRequests: {
@@ -215,6 +199,10 @@ export async function getAdminAssetsList() {
     },
     orderBy: [desc(assets.id)],
   });
+}
+
+export async function getAdminAssetsList() {
+  return await getAssets();
 }
 
 export async function getAssetById(id: number) {
