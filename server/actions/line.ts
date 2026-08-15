@@ -223,3 +223,184 @@ export async function getLineLinkInfo(): Promise<{
     };
   }
 }
+
+export type LineAuthResult =
+  | { status: 'authenticated'; user: { id: number; name: string; role: 'admin' | 'user'; email: string } }
+  | { status: 'needs_link'; lineProfile: { lineUserId: string; displayName?: string; pictureUrl?: string } }
+  | { status: 'not_in_group'; error: string }
+  | { status: 'unauthorized_role'; error: string };
+
+/**
+ * Verifies LINE Group membership and auto-logs in the user if already linked,
+ * or instructs the client to link the account.
+ */
+export async function verifyAndHandleLineAction(
+  lineUserId: string,
+  displayName?: string,
+  pictureUrl?: string
+): Promise<LineAuthResult> {
+  try {
+    const trimmedId = lineUserId.trim();
+    if (!trimmedId) {
+      return { status: 'not_in_group', error: 'ไม่พบ LINE User ID' };
+    }
+
+    // 1. Check if user is in the designated LINE Group
+    const verification = await verifyUserInLineGroup(trimmedId);
+    if (!verification.isMember) {
+      return {
+        status: 'not_in_group',
+        error:
+          verification.error ||
+          'คุณไม่ได้เป็นสมาชิกในกลุ่ม LINE ทางการของระบบ หรือ LINE Bot ยังไม่ได้อยู่ในกลุ่ม',
+      };
+    }
+
+    const finalDisplayName = verification.displayName || displayName || 'LINE User';
+    const finalPictureUrl = verification.pictureUrl || pictureUrl;
+
+    // 2. Check if user is already linked in Database
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.line_user_id, trimmedId),
+    });
+
+    if (existingUser) {
+      if (existingUser.role !== 'admin') {
+        return {
+          status: 'unauthorized_role',
+          error: `บัญชี LINE (${finalDisplayName}) ผูกกับพนักงานทั่วไป (${existingUser.name}) ไม่มีสิทธิ์อนุมัติคำขอยืมอุปกรณ์ (ต้องการสิทธิ์ IT Admin)`,
+        };
+      }
+
+      // Import createSessionForUser from auth
+      const { createSessionForUser } = await import('./auth');
+      await createSessionForUser(existingUser.id);
+
+      return {
+        status: 'authenticated',
+        user: {
+          id: existingUser.id,
+          name: existingUser.name,
+          role: existingUser.role,
+          email: existingUser.email,
+        },
+      };
+    }
+
+    // 3. User is in the group, but has NOT linked account yet
+    return {
+      status: 'needs_link',
+      lineProfile: {
+        lineUserId: trimmedId,
+        displayName: finalDisplayName,
+        pictureUrl: finalPictureUrl,
+      },
+    };
+  } catch (err) {
+    console.error('Error verifying LINE action:', err);
+    return {
+      status: 'not_in_group',
+      error: 'เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์กับ LINE API',
+    };
+  }
+}
+
+const linkAndLoginSchema = z.object({
+  lineUserId: z.string().min(5, 'LINE User ID ไม่ถูกต้อง'),
+  displayName: z.string().optional(),
+  pictureUrl: z.string().optional(),
+  email: z.string().email('กรุณาระบุอีเมลให้ถูกต้อง'),
+  password: z.string().min(1, 'กรุณาระบุรหัสผ่าน'),
+});
+
+/**
+ * Links LINE Account with user credentials and authenticates simultaneously.
+ */
+export async function linkLineAndLoginAction(
+  data: z.infer<typeof linkAndLoginSchema>
+): Promise<ActionResponse<{ role: string; name: string }>> {
+  try {
+    const validated = linkAndLoginSchema.parse(data);
+    const lineUserId = validated.lineUserId.trim();
+
+    // 1. Verify user credentials
+    const user = await db.query.users.findFirst({
+      where: eq(users.email, validated.email),
+    });
+
+    if (!user) {
+      return { success: false, error: 'ไม่พบบัญชีผู้ใช้งานที่ระบุในระบบ' };
+    }
+
+    // 2. Verify that the user is in the LINE Group
+    const verification = await verifyUserInLineGroup(lineUserId);
+    if (!verification.isMember) {
+      return {
+        success: false,
+        error:
+          verification.error ||
+          'บัญชี LINE ของท่านยังไม่ได้เข้าร่วมกลุ่ม LINE ทางการของระบบ',
+      };
+    }
+
+    // 3. Verify that the line_user_id is not already linked to another user
+    const existingOther = await db.query.users.findFirst({
+      where: and(eq(users.line_user_id, lineUserId), ne(users.id, user.id)),
+    });
+
+    if (existingOther) {
+      return {
+        success: false,
+        error: `LINE ID นี้ถูกผูกกับผู้ใช้ท่านอื่นในระบบแล้ว (${existingOther.name})`,
+      };
+    }
+
+    const finalDisplayName = verification.displayName || validated.displayName || 'LINE User';
+    const finalPictureUrl = verification.pictureUrl || validated.pictureUrl || null;
+
+    // 4. Save LINE details to user in database
+    await db
+      .update(users)
+      .set({
+        line_user_id: lineUserId,
+        line_display_name: finalDisplayName,
+        line_picture_url: finalPictureUrl,
+        updated_at: new Date(),
+      })
+      .where(eq(users.id, user.id));
+
+    // 5. Log Activity
+    await db.insert(activity_logs).values({
+      user_id: user.id,
+      action: 'ผูกบัญชี LINE จากกลุ่มอนุมัติ',
+      details: `ผูกบัญชี LINE ID: ${lineUserId} (${finalDisplayName}) พร้อมตรวจสอบสมาชิกกลุ่มสำเร็จ`,
+    });
+
+    // 6. Create session cookie
+    const { createSessionForUser } = await import('./auth');
+    await createSessionForUser(user.id);
+
+    revalidatePath('/', 'layout');
+    revalidatePath('/admin/requests');
+    revalidatePath('/admin/users');
+
+    return {
+      success: true,
+      message: `ผูกบัญชี LINE (${finalDisplayName}) และเข้าสู่ระบบสำเร็จ`,
+      data: {
+        role: user.role,
+        name: user.name,
+      },
+    };
+  } catch (err: unknown) {
+    console.error('Error in linkLineAndLoginAction:', err);
+    if (err instanceof z.ZodError) {
+      return { success: false, error: err.issues[0].message };
+    }
+    return {
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการผูกบัญชี LINE และเข้าสู่ระบบ',
+    };
+  }
+}
+

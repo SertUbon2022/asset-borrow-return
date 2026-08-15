@@ -21,7 +21,14 @@ export function proxy(request: NextRequest) {
   // 1. If NOT authenticated and trying to access any protected page (not /login)
   if (!isAuthenticated && path !== '/login') {
     const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect_to', `${path}${request.nextUrl.search}`);
     loginUrl.searchParams.set('error', 'login_required');
+    if (request.nextUrl.searchParams.has('highlight')) {
+      loginUrl.searchParams.set('highlight', request.nextUrl.searchParams.get('highlight')!);
+    }
+    if (request.nextUrl.searchParams.has('action')) {
+      loginUrl.searchParams.set('action', request.nextUrl.searchParams.get('action')!);
+    }
     return NextResponse.redirect(loginUrl);
   }
 

@@ -17,6 +17,29 @@ const loginSchema = z.object({
 const SESSION_COOKIE_NAME = 'pwa_session_id';
 const SESSION_DURATION_DAYS = 7;
 
+export async function createSessionForUser(userId: number) {
+  const sessionId = `pwa_sess_${crypto.randomBytes(24).toString('hex')}`;
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
+
+  await db.insert(sessions).values({
+    id: sessionId,
+    user_id: userId,
+    expires_at: expiresAt,
+  });
+
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE_NAME, sessionId, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    expires: expiresAt,
+  });
+
+  return sessionId;
+}
+
 export async function loginAction(formData: { email: string; password: string }) {
   try {
     const validated = loginSchema.parse(formData);
@@ -30,27 +53,7 @@ export async function loginAction(formData: { email: string; password: string })
       return { success: false, message: 'ไม่พบบัญชีผู้ใช้งานที่ระบุในระบบ' };
     }
 
-    // Generate secure random session token
-    const sessionId = `pwa_sess_${crypto.randomBytes(24).toString('hex')}`;
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
-
-    // Store session record in MySQL database
-    await db.insert(sessions).values({
-      id: sessionId,
-      user_id: user.id,
-      expires_at: expiresAt,
-    });
-
-    // Set secure HttpOnly cookie
-    const cookieStore = await cookies();
-    cookieStore.set(SESSION_COOKIE_NAME, sessionId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      expires: expiresAt,
-    });
+    await createSessionForUser(user.id);
 
     return { success: true, message: 'เข้าสู่ระบบสำเร็จ', role: user.role };
   } catch (err: unknown) {

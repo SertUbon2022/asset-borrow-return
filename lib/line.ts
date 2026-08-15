@@ -31,9 +31,16 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
   });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const approveUrl = `${appUrl}/admin/requests?highlight=${data.requestId}&action=approve`;
-  const rejectUrl = `${appUrl}/admin/requests?highlight=${data.requestId}&action=reject`;
-  const viewUrl = `${appUrl}/admin/requests?highlight=${data.requestId}`;
+  const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+
+  // Build URLs with LIFF if available for seamless in-app LINE experience
+  const baseUrl = liffId && liffId.trim() !== ''
+    ? `https://liff.line.me/${liffId.trim()}`
+    : appUrl;
+
+  const approveUrl = `${baseUrl}/admin/requests?highlight=${data.requestId}&action=approve`;
+  const rejectUrl = `${baseUrl}/admin/requests?highlight=${data.requestId}&action=reject`;
+  const viewUrl = `${baseUrl}/admin/requests?highlight=${data.requestId}`;
 
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800';
   let displayImage = data.imageUrl?.trim() || defaultFallbackImage;
