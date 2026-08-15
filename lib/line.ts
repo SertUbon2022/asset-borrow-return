@@ -319,9 +319,10 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
           {
             type: 'button',
             action: {
-              type: 'uri',
+              type: 'postback',
               label: '✅ อนุมัติคำขอยืมอุปกรณ์',
-              uri: approveUrl,
+              data: `action=approve&requestId=${data.requestId}`,
+              displayText: `✅ ยืนยันอนุมัติคำขอ #${data.requestId} (${data.assetName})`,
             },
             style: 'primary',
             color: '#0072BC',
@@ -330,9 +331,10 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
           {
             type: 'button',
             action: {
-              type: 'uri',
+              type: 'postback',
               label: '❌ ปฏิเสธคำขอนี้',
-              uri: rejectUrl,
+              data: `action=reject&requestId=${data.requestId}`,
+              displayText: `❌ ยืนยันปฏิเสธคำขอ #${data.requestId}`,
             },
             style: 'primary',
             color: '#003366',
@@ -524,4 +526,227 @@ export async function getLineGroupSummary(): Promise<{
     return { groupId: groupId.trim() };
   }
 }
+
+/**
+ * Replies to a LINE event using replyToken
+ */
+export async function replyLineMessage(replyToken: string, messages: unknown[]): Promise<boolean> {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token || !replyToken) {
+    console.warn('[LINE Reply] Skipped: Token or ReplyToken missing.');
+    return false;
+  }
+
+  try {
+    const response = await fetch('https://api.line.me/v2/bot/message/reply', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        replyToken,
+        messages,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[LINE Reply Error] HTTP ${response.status}: ${errText}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[LINE Reply Exception]:', error);
+    return false;
+  }
+}
+
+interface ActionResultData {
+  requestId: number;
+  assetName: string;
+  assetTag: string;
+  action: 'approve' | 'reject';
+  adminName: string;
+  borrowerName: string;
+  processedAt: Date;
+}
+
+/**
+ * Constructs a PWA CI styled LINE Flex Message acknowledging the Approve / Reject action in the group
+ */
+export function buildActionResultFlexMessage(data: ActionResultData) {
+  const isApprove = data.action === 'approve';
+  const headerBgColor = isApprove ? '#003366' : '#881337';
+  const badgeBgColor = isApprove ? '#DCFCE7' : '#FFE4E6';
+  const badgeTextColor = isApprove ? '#15803D' : '#BE123C';
+  const statusTitle = isApprove ? 'อนุมัติคำขอยืมอุปกรณ์แล้ว' : 'ปฏิเสธคำขอยืมอุปกรณ์แล้ว';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const viewUrl = `${appUrl}/admin/requests?highlight=${data.requestId}`;
+
+  const timeStr = data.processedAt.toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  return {
+    type: 'flex',
+    altText: `📢 ${statusTitle} #${data.requestId} โดย ${data.adminName}`,
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: headerBgColor,
+        paddingAll: '16px',
+        contents: [
+          {
+            type: 'text',
+            text: '💧 การประปาส่วนภูมิภาค (กปภ.)',
+            color: '#E5A823',
+            size: 'xs',
+            weight: 'bold',
+          },
+          {
+            type: 'text',
+            text: statusTitle,
+            color: '#FFFFFF',
+            size: 'md',
+            weight: 'bold',
+            wrap: true,
+            margin: 'xs',
+          },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'md',
+        paddingAll: '16px',
+        contents: [
+          {
+            type: 'box',
+            layout: 'horizontal',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            contents: [
+              {
+                type: 'text',
+                text: `คำขอ #${data.requestId}`,
+                color: '#0072BC',
+                size: 'xs',
+                weight: 'bold',
+              },
+              {
+                type: 'box',
+                layout: 'horizontal',
+                backgroundColor: badgeBgColor,
+                cornerRadius: 'md',
+                paddingStart: 'md',
+                paddingEnd: 'md',
+                paddingTop: 'xs',
+                paddingBottom: 'xs',
+                contents: [
+                  {
+                    type: 'text',
+                    text: isApprove ? '✅ อนุมัติแล้ว' : '❌ ปฏิเสธคำขอ',
+                    color: badgeTextColor,
+                    size: 'xs',
+                    weight: 'bold',
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#F8FAFC',
+            cornerRadius: 'lg',
+            paddingAll: '12px',
+            borderColor: '#CBD5E1',
+            borderWidth: '1px',
+            contents: [
+              {
+                type: 'text',
+                text: data.assetName,
+                color: '#003366',
+                size: 'sm',
+                weight: 'bold',
+                wrap: true,
+              },
+              {
+                type: 'text',
+                text: `รหัสครุภัณฑ์: ${data.assetTag}`,
+                color: '#64748B',
+                size: 'xs',
+                margin: 'xs',
+              },
+            ],
+          },
+          {
+            type: 'separator',
+            color: '#E2E8F0',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            contents: [
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  { type: 'text', text: '👤 ผู้ขอยืม:', color: '#64748B', size: 'xs', flex: 3 },
+                  { type: 'text', text: data.borrowerName, color: '#1E293B', size: 'xs', weight: 'bold', flex: 7 },
+                ],
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  { type: 'text', text: '🛡️ ดำเนินการโดย:', color: '#64748B', size: 'xs', flex: 3 },
+                  { type: 'text', text: `${data.adminName} (IT Admin)`, color: '#0072BC', size: 'xs', weight: 'bold', flex: 7 },
+                ],
+              },
+              {
+                type: 'box',
+                layout: 'baseline',
+                contents: [
+                  { type: 'text', text: '⏱️ เวลา:', color: '#64748B', size: 'xs', flex: 3 },
+                  { type: 'text', text: `${timeStr} น.`, color: '#334155', size: 'xs', flex: 7 },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      footer: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '16px',
+        paddingTop: 'none',
+        contents: [
+          {
+            type: 'button',
+            action: {
+              type: 'uri',
+              label: '🔍 ตรวจสอบคำขอนี้ในระบบ',
+              uri: viewUrl,
+            },
+            style: 'link',
+            color: '#0072BC',
+            height: 'sm',
+          },
+        ],
+      },
+    },
+  };
+}
+
 
