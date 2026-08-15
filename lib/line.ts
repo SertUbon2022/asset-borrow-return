@@ -13,6 +13,22 @@ interface BorrowNotificationData {
 }
 
 /**
+ * Gets the canonical application URL with smart fallback for Vercel environments
+ */
+export function getAppUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL && process.env.NEXT_PUBLIC_APP_URL.trim() !== '') {
+    return process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, '');
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL.trim()}`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL.trim()}`;
+  }
+  return 'http://localhost:3000';
+}
+
+/**
  * Constructs a PWA CI styled LINE Flex Message JSON payload
  */
 export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
@@ -30,7 +46,7 @@ export function buildBorrowRequestFlexMessage(data: BorrowNotificationData) {
     year: 'numeric',
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = getAppUrl();
   const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
 
   // Build URLs with LIFF if available for seamless in-app LINE experience

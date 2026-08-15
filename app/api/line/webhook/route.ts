@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users, borrow_requests, activity_logs } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { replyLineMessage, buildActionResultFlexMessage } from '@/lib/line';
+import { replyLineMessage, buildActionResultFlexMessage, getAppUrl } from '@/lib/line';
 
 export async function GET() {
   return NextResponse.json({
@@ -56,8 +56,10 @@ export async function POST(req: NextRequest) {
         // Case 1: LINE User is NOT bound or NOT an Admin
         if (!adminUser || adminUser.role !== 'admin') {
           if (replyToken) {
-            const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-            const linkUrl = `${appUrl}/admin/requests?highlight=${requestId}&action=${action}`;
+            const appUrl = getAppUrl();
+            const liffId = process.env.NEXT_PUBLIC_LINE_LIFF_ID;
+            const baseUrl = liffId && liffId.trim() !== '' ? `https://liff.line.me/${liffId.trim()}` : appUrl;
+            const linkUrl = `${baseUrl}/admin/requests?highlight=${requestId}&action=${action}`;
 
             await replyLineMessage(replyToken, [
               {
